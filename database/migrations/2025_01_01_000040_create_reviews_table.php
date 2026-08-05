@@ -14,6 +14,9 @@ return new class extends Migration
             $table->morphs('reviewable'); // reviewable_id, reviewable_type
             $table->tinyInteger('rating'); // 1–5
             $table->text('comment')->nullable();
+            $table->string('packing_feedback')->nullable();
+            $table->string('food_feedback')->nullable();
+            $table->string('time_feedback')->nullable();
             $table->timestamps();
 
             // A user can only review the same entity once

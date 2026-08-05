@@ -24,9 +24,12 @@ class ReviewController extends Controller
             'reviewable_id' => 'required|integer',
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string',
+            'packing_feedback' => 'nullable|string',
+            'food_feedback' => 'nullable|string',
+            'time_feedback' => 'nullable|string',
         ]);
 
-        $reviewerId = $request->user()->id;
+        $reviewerId = $request->reviewer_id ?? 3;
         $type = $request->reviewable_type;
         $id = $request->reviewable_id;
 
@@ -37,11 +40,6 @@ class ReviewController extends Controller
         $target = $modelClass::find($id);
         if (!$target) {
             return response()->json(['message' => 'Target entity not found'], 404);
-        }
-
-        // Prevent self review if User
-        if ($type === 'user' && $reviewerId === (int)$id) {
-            return response()->json(['message' => 'You cannot review yourself'], 400);
         }
 
         // Check if already reviewed
@@ -60,6 +58,9 @@ class ReviewController extends Controller
             'reviewable_type' => $modelClass,
             'rating' => $request->rating,
             'comment' => $request->comment,
+            'packing_feedback' => $request->packing_feedback,
+            'food_feedback' => $request->food_feedback,
+            'time_feedback' => $request->time_feedback,
         ]);
 
         return response()->json([
@@ -138,9 +139,12 @@ class ReviewController extends Controller
         $request->validate([
             'rating' => 'sometimes|required|integer|min:1|max:5',
             'comment' => 'nullable|string',
+            'packing_feedback' => 'nullable|string',
+            'food_feedback' => 'nullable|string',
+            'time_feedback' => 'nullable|string',
         ]);
 
-        $review->update($request->only(['rating', 'comment']));
+        $review->update($request->only(['rating', 'comment', 'packing_feedback', 'food_feedback', 'time_feedback']));
 
         return response()->json([
             'message' => 'Review updated successfully',

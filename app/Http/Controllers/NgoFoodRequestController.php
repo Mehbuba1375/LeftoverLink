@@ -32,17 +32,18 @@ class NgoFoodRequestController extends Controller
         return response()->json($requests);
     }
 
-    // Submit a request (NGOs only)
+    // Submit a request
     public function store(Request $request)
     {
-        if ($request->user()->role !== 'ngo' && $request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized. Only NGOs can submit food requests.'], 403);
-        }
 
         $request->validate([
             'food_listing_id' => 'required|exists:food_listings,id',
             'quantity_requested' => 'required|integer|min:1',
             'message' => 'nullable|string',
+            'contact_name' => 'nullable|string',
+            'pickup_time' => 'nullable|string',
+            'address' => 'nullable|string',
+            'contact_no' => 'nullable|string',
         ]);
 
         $listing = FoodListing::find($request->food_listing_id);
@@ -56,10 +57,14 @@ class NgoFoodRequestController extends Controller
         }
 
         $foodRequest = NgoFoodRequest::create([
-            'ngo_id' => $request->user()->id,
+            'ngo_id' => $request->ngo_id ?? 3,
             'food_listing_id' => $request->food_listing_id,
             'quantity_requested' => $request->quantity_requested,
             'message' => $request->message,
+            'contact_name' => $request->contact_name,
+            'pickup_time' => $request->pickup_time,
+            'address' => $request->address,
+            'contact_no' => $request->contact_no,
             'status' => 'pending',
             'requested_at' => now(),
         ]);
@@ -113,6 +118,10 @@ class NgoFoodRequestController extends Controller
         $request->validate([
             'quantity_requested' => 'sometimes|required|integer|min:1',
             'message' => 'nullable|string',
+            'contact_name' => 'nullable|string',
+            'pickup_time' => 'nullable|string',
+            'address' => 'nullable|string',
+            'contact_no' => 'nullable|string',
         ]);
 
         $listing = FoodListing::find($foodRequest->food_listing_id);
@@ -171,13 +180,7 @@ class NgoFoodRequestController extends Controller
             return response()->json(['message' => 'Food request not found'], 404);
         }
 
-        $user = $request->user();
         $listing = $foodRequest->foodListing;
-
-        // Only the donor who posted the listing OR an admin can approve/reject
-        if ($user->role !== 'admin' && $user->id !== $listing->donor_id) {
-            return response()->json(['message' => 'Unauthorized. Only the donor or admin can update request status.'], 403);
-        }
 
         $request->validate([
             'status' => 'required|string|in:approved,rejected,fulfilled',

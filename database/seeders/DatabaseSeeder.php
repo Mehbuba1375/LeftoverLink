@@ -86,6 +86,10 @@ class DatabaseSeeder extends Seeder
             'food_listing_id' => $listing1->id,
             'quantity_requested' => 30,
             'message' => 'Need these for our mohakhali slum distribution program today.',
+            'contact_name' => 'BRAC Volunteer',
+            'pickup_time' => '12:00 PM - 02:00 PM',
+            'address' => 'Mohakhali Slum Area, Gate 1',
+            'contact_no' => '+8801700000003',
             'status' => 'pending',
             'requested_at' => now(),
         ]);
@@ -101,6 +105,9 @@ class DatabaseSeeder extends Seeder
             'reviewable_type' => User::class,
             'rating' => 5,
             'comment' => 'Always provides high quality fresh food. Great coordination!',
+            'packing_feedback' => 'Excellent clean packing in paper boxes.',
+            'food_feedback' => 'Very delicious, clean and warm cooked food.',
+            'time_feedback' => 'Picked up on time without any delay.',
         ]);
 
         // Review for the Food Listing 3
@@ -110,6 +117,9 @@ class DatabaseSeeder extends Seeder
             'reviewable_type' => FoodListing::class,
             'rating' => 4,
             'comment' => 'Great biscuits, kids loved them.',
+            'packing_feedback' => 'Original factory sealed cartons.',
+            'food_feedback' => 'High quality brand biscuits.',
+            'time_feedback' => 'Received within the expected pickup window.',
         ]);
 
         // 5. Generate API Tokens for Testing

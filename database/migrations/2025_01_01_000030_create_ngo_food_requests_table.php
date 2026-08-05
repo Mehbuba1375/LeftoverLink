@@ -14,6 +14,10 @@ return new class extends Migration
             $table->foreignId('food_listing_id')->constrained('food_listings')->onDelete('cascade');
             $table->integer('quantity_requested');
             $table->text('message')->nullable();
+            $table->string('contact_name')->nullable();
+            $table->string('pickup_time')->nullable();
+            $table->string('address')->nullable();
+            $table->string('contact_no')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected', 'fulfilled'])->default('pending');
             $table->text('admin_notes')->nullable();
             $table->timestamp('requested_at')->useCurrent();
