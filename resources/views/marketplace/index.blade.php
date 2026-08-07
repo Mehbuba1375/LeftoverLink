@@ -6,8 +6,12 @@
     <!-- Page Title & Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/60 pb-3">
         <div>
-            <h1 class="text-2xl font-heading font-extrabold text-[#222222]">Available Surplus Donations & Meals</h1>
-            <p class="text-xs text-[#666666]">Browse surplus food from local restaurants and bakeries at discounted prices or free donations</p>
+            <h1 class="text-2xl font-heading font-extrabold text-[#222222]">
+                {{ isset($isDonationPage) && $isDonationPage ? 'Available Community Donations' : 'Available Surplus Donations & Meals' }}
+            </h1>
+            <p class="text-xs text-[#666666]">
+                {{ isset($isDonationPage) && $isDonationPage ? 'Browse free surplus food donations published by local restaurants and community partners' : 'Browse surplus food from local restaurants and bakeries at discounted prices or free donations' }}
+            </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -33,11 +37,17 @@
         <!-- Listing Type Filter -->
         <div>
             <label class="block font-semibold text-[#222222] mb-1">Listing Type</label>
-            <select x-model="$store.marketplace.filters.type" @change="$store.marketplace.fetchFilteredFoods()" class="w-full px-3 py-2.5 bg-[#F5F5F5] border border-gray-200 rounded-xl text-[#222222]">
-                <option value="all">All Types</option>
-                <option value="discounted">Discounted Sale</option>
-                <option value="donated">Free Donation</option>
-            </select>
+            @if(isset($isDonationPage) && $isDonationPage)
+                <select disabled class="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 font-semibold cursor-not-allowed">
+                    <option value="donated" selected>Free Community Donations Only</option>
+                </select>
+            @else
+                <select x-model="$store.marketplace.filters.type" @change="$store.marketplace.fetchFilteredFoods()" class="w-full px-3 py-2.5 bg-[#F5F5F5] border border-gray-200 rounded-xl text-[#222222]">
+                    <option value="all">All Types</option>
+                    <option value="discounted">Discounted Sale</option>
+                    <option value="donated">Free Donation</option>
+                </select>
+            @endif
         </div>
 
         <!-- Provider Filter -->
@@ -71,7 +81,7 @@
     <!-- Loading Indicator -->
     <div x-show="$store.marketplace.loading" class="text-center py-12 space-y-3">
         <i class="fa-solid fa-circle-notch fa-spin text-2xl text-[#2E7D32]"></i>
-        <p class="text-xs text-[#666666]">Fetching available surplus food listings...</p>
+        <p class="text-xs text-[#666666]">Fetching available food listings...</p>
     </div>
 
     <!-- Client-Side Reactive Food Cards Grid (When Alpine initialized) -->
@@ -120,10 +130,17 @@
                                     <span class="truncate font-medium text-[#222222]" x-text="item.provider_name"></span>
                                 </span>
 
-                                <!-- Rating -->
-                                <span class="flex items-center gap-1 text-amber-500 font-semibold text-[11px]">
-                                    <i class="fa-solid fa-star"></i> 4.8
-                                </span>
+                                <!-- Dynamic Rating -->
+                                <template x-if="item.reviews_count > 0">
+                                    <span class="flex items-center gap-1 text-amber-500 font-semibold text-[11px]">
+                                        <i class="fa-solid fa-star"></i>
+                                        <span x-text="Number(item.average_rating).toFixed(1)"></span>
+                                        <span class="text-gray-400 font-normal" x-text="'(' + item.reviews_count + ')'"></span>
+                                    </span>
+                                </template>
+                                <template x-if="!item.reviews_count || item.reviews_count === 0">
+                                    <span class="text-[11px] text-gray-400 font-medium italic">No reviews yet</span>
+                                </template>
                             </div>
                         </div>
 
@@ -177,6 +194,8 @@
                     'donation_status' => $food->donation_status,
                     'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
                     'provider_name' => $food->user ? $food->user->name : 'Food Provider',
+                    'average_rating' => $food->average_rating,
+                    'reviews_count' => $food->reviews_count,
                 ]" />
             @empty
                 <div class="col-span-3 bg-white rounded-xl border border-gray-100 p-12 text-center space-y-4">

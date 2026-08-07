@@ -32,9 +32,30 @@ class Food extends Model
         'price' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'average_rating',
+        'reviews_count',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        $avg = $this->reviews()->avg('rating');
+        return $avg ? round($avg, 1) : 0.0;
+    }
+
+    public function getReviewsCountAttribute()
+    {
+        return $this->reviews()->count();
     }
 
     public function scopeAvailable($query)

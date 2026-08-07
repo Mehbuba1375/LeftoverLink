@@ -5,11 +5,13 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
+use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 // Public Marketplace Routes
 Route::get('/', [MarketplaceController::class, 'index'])->name('home');
 Route::get('/marketplace', [MarketplaceController::class, 'index'])->name('marketplace.index');
+Route::get('/donations', [MarketplaceController::class, 'donations'])->name('donations.index');
 Route::get('/marketplace/api/search', [MarketplaceController::class, 'searchApi'])->name('marketplace.api.search');
 
 // Guest Auth Routes
@@ -23,6 +25,9 @@ Route::middleware('guest')->group(function () {
 // Authenticated Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Review Submission
+    Route::post('/foods/{food}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
     // Profile Management
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

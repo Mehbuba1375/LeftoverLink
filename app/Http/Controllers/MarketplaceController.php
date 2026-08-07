@@ -13,7 +13,7 @@ class MarketplaceController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Food::available()->with('user');
+        $query = Food::available()->with(['user', 'reviews']);
 
         $this->applyFilters($query, $request);
 
@@ -30,8 +30,38 @@ class MarketplaceController extends Controller
         ];
 
         $providers = User::where('role', 'food_provider')->select('id', 'name')->get();
+        $isDonationPage = false;
 
-        return view('marketplace.index', compact('foods', 'categories', 'providers'));
+        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage'));
+    }
+
+    /**
+     * Display Available Donations page (Restricted strictly to donated listings).
+     */
+    public function donations(Request $request)
+    {
+        $request->merge(['is_donation_page' => '1', 'type' => 'donated']);
+
+        $query = Food::available()->where('donation_status', true)->with(['user', 'reviews']);
+
+        $this->applyFilters($query, $request);
+
+        $foods = $query->paginate(12)->withQueryString();
+
+        $categories = [
+            'Prepared Meals',
+            'Bakery & Pastries',
+            'Fresh Produce',
+            'Dairy & Eggs',
+            'Beverages',
+            'Groceries & Snacks',
+            'Other'
+        ];
+
+        $providers = User::where('role', 'food_provider')->select('id', 'name')->get();
+        $isDonationPage = true;
+
+        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage'));
     }
 
     /**
@@ -39,7 +69,7 @@ class MarketplaceController extends Controller
      */
     public function searchApi(Request $request)
     {
-        $query = Food::available()->with('user:id,name,phone,address');
+        $query = Food::available()->with(['user:id,name,phone,address', 'reviews']);
 
         $this->applyFilters($query, $request);
 
@@ -56,6 +86,8 @@ class MarketplaceController extends Controller
                 'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
                 'provider_name' => $food->user ? $food->user->name : 'Food Provider',
                 'provider_id' => $food->user_id,
+                'average_rating' => $food->average_rating,
+                'reviews_count' => $food->reviews_count,
                 'latitude' => $food->latitude,
                 'longitude' => $food->longitude,
             ];
@@ -72,6 +104,13 @@ class MarketplaceController extends Controller
      */
     private function applyFilters($query, Request $request)
     {
+        // Enforce donation_status = true if on donations page or type = donated
+        if ($request->boolean('is_donation_page') || $request->type === 'donated') {
+            $query->where('donation_status', true);
+        } elseif ($request->filled('type') && $request->type === 'discounted') {
+            $query->where('donation_status', false);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -84,14 +123,6 @@ class MarketplaceController extends Controller
 
         if ($request->filled('category') && $request->category !== 'all') {
             $query->where('category', $request->category);
-        }
-
-        if ($request->filled('type')) {
-            if ($request->type === 'discounted') {
-                $query->where('donation_status', false);
-            } elseif ($request->type === 'donated') {
-                $query->where('donation_status', true);
-            }
         }
 
         if ($request->filled('min_price')) {

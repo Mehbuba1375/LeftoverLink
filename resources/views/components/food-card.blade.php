@@ -3,6 +3,8 @@
 @php
     $isExpired = isset($item['expiration_time_raw']) && \Carbon\Carbon::parse($item['expiration_time_raw'])->isPast();
     $isOutOfStock = isset($item['quantity']) && $item['quantity'] <= 0;
+    $reviewsCount = $item['reviews_count'] ?? 0;
+    $avgRating = $item['average_rating'] ?? 0.0;
 @endphp
 
 <div class="bg-white rounded-xl shadow-xs border border-gray-100/90 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300 group">
@@ -56,17 +58,21 @@
                 {{ $item['food_name'] ?? 'Food Listing' }}
             </h3>
 
-            <!-- Provider Name & Rating -->
+            <!-- Provider Name & Dynamic Rating -->
             <div class="flex items-center justify-between text-xs text-[#666666]">
-                <span class="flex items-center gap-1.5 truncate max-w-[170px]">
+                <span class="flex items-center gap-1.5 truncate max-w-[160px]">
                     <i class="fa-solid fa-store text-[#2E7D32]"></i>
                     <span class="truncate font-medium text-[#222222]">{{ $item['provider_name'] ?? 'Food Provider' }}</span>
                 </span>
 
                 <!-- Rating -->
-                <span class="flex items-center gap-1 text-amber-500 font-semibold text-[11px]">
-                    <i class="fa-solid fa-star"></i> 4.8
-                </span>
+                @if($reviewsCount > 0)
+                    <span class="flex items-center gap-1 text-amber-500 font-semibold text-[11px]">
+                        <i class="fa-solid fa-star"></i> {{ number_format($avgRating, 1) }} <span class="text-gray-400 font-normal">({{ $reviewsCount }})</span>
+                    </span>
+                @else
+                    <span class="text-[11px] text-gray-400 font-medium italic">No reviews yet</span>
+                @endif
             </div>
         </div>
 

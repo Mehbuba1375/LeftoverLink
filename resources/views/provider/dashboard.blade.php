@@ -101,7 +101,16 @@
                     <!-- Card Body -->
                     <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
                         <div class="space-y-1.5">
-                            <h3 class="font-heading font-bold text-base text-[#222222] truncate">{{ $item->food_name }}</h3>
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="font-heading font-bold text-base text-[#222222] truncate">{{ $item->food_name }}</h3>
+                                @if($item->reviews_count > 0)
+                                    <span class="flex items-center gap-1 text-amber-500 font-semibold text-xs shrink-0">
+                                        <i class="fa-solid fa-star"></i> {{ number_format($item->average_rating, 1) }} <span class="text-gray-400 font-normal">({{ $item->reviews_count }})</span>
+                                    </span>
+                                @else
+                                    <span class="text-[11px] text-gray-400 font-medium italic shrink-0">No reviews yet</span>
+                                @endif
+                            </div>
                             <span class="text-xs font-semibold px-2 py-0.5 rounded bg-[#F5F5F5] text-[#666666]">{{ $item->category }}</span>
                         </div>
 

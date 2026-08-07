@@ -4,7 +4,7 @@
         
         <div class="space-y-8">
             <!-- Top Logo & Tagline -->
-            <a href="{{ route('marketplace.index') }}" class="block group">
+            <a href="{{ route('donations.index') }}" class="block group">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#2E7D32] to-[#66BB6A] p-0.5 shadow-md shadow-[#2E7D32]/20 group-hover:scale-105 transition-transform duration-300">
                         <div class="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
@@ -22,14 +22,14 @@
             <nav class="space-y-1.5">
                 <!-- Home -->
                 <a href="{{ route('home') }}" 
-                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('home') && !request()->routeIs('marketplace.index') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
+                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('home') && !request()->routeIs('donations.index') && !request()->routeIs('marketplace.index') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
                     <i class="fa-solid fa-house w-5 text-base text-center"></i>
                     <span>Home</span>
                 </a>
 
                 <!-- Available Donations -->
-                <a href="{{ route('marketplace.index') }}" 
-                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('marketplace.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
+                <a href="{{ route('donations.index') }}" 
+                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('donations.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
                     <i class="fa-solid fa-utensils w-5 text-base text-center"></i>
                     <span>Available Donations</span>
                 </a>
@@ -100,7 +100,7 @@
 
     <!-- Mobile Top Header -->
     <div class="lg:hidden flex items-center justify-between px-4 py-3 bg-[#FFF9E8] border-b border-[#EFE5CD] sticky top-0 z-50">
-        <a href="{{ route('marketplace.index') }}" class="flex items-center gap-2">
+        <a href="{{ route('donations.index') }}" class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2E7D32] to-[#66BB6A] p-0.5">
                 <div class="w-full h-full bg-white rounded-[10px] flex items-center justify-center">
                     <i class="fa-solid fa-leaf text-[#2E7D32] text-sm"></i>
@@ -127,7 +127,7 @@
                     <a href="{{ route('home') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-house w-5 text-center"></i> Home
                     </a>
-                    <a href="{{ route('marketplace.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
+                    <a href="{{ route('donations.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-utensils w-5 text-center"></i> Available Donations
                     </a>
                     @auth

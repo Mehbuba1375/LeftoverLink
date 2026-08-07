@@ -52,7 +52,7 @@
                 filters: {
                     search: '{{ request("search") }}',
                     category: '{{ request("category", "all") }}',
-                    type: '{{ request("type", "all") }}',
+                    type: '{{ request()->is("donations*") ? "donated" : request("type", "all") }}',
                     provider_id: '{{ request("provider_id", "all") }}',
                     min_price: '{{ request("min_price", "") }}',
                     max_price: '{{ request("max_price", "") }}',
@@ -60,16 +60,23 @@
                 },
                 async fetchFilteredFoods() {
                     const path = window.location.pathname;
-                    if (path !== '/' && path !== '/marketplace') {
-                        window.location.href = '/marketplace?search=' + encodeURIComponent(this.filters.search);
+                    if (path !== '/' && path !== '/marketplace' && path !== '/donations') {
+                        window.location.href = '/donations?search=' + encodeURIComponent(this.filters.search);
                         return;
                     }
 
                     this.loading = true;
                     const params = new URLSearchParams();
+
+                    if (path === '/donations' || this.filters.type === 'donated') {
+                        params.append('is_donation_page', '1');
+                        params.append('type', 'donated');
+                    } else if (this.filters.type && this.filters.type !== 'all') {
+                        params.append('type', this.filters.type);
+                    }
+
                     if (this.filters.search) params.append('search', this.filters.search);
                     if (this.filters.category && this.filters.category !== 'all') params.append('category', this.filters.category);
-                    if (this.filters.type && this.filters.type !== 'all') params.append('type', this.filters.type);
                     if (this.filters.provider_id && this.filters.provider_id !== 'all') params.append('provider_id', this.filters.provider_id);
                     if (this.filters.min_price) params.append('min_price', this.filters.min_price);
                     if (this.filters.max_price) params.append('max_price', this.filters.max_price);
@@ -88,10 +95,11 @@
                     }
                 },
                 resetFilters() {
+                    const isDonationPage = window.location.pathname === '/donations';
                     this.filters = {
                         search: '',
                         category: 'all',
-                        type: 'all',
+                        type: isDonationPage ? 'donated' : 'all',
                         provider_id: 'all',
                         min_price: '',
                         max_price: '',
