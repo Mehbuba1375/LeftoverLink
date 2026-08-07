@@ -172,4 +172,103 @@ class CommonAndMemberOneTest extends TestCase
         $responseAll->assertStatus(200);
         $this->assertCount(2, $responseAll->json('data'));
     }
+
+    public function test_available_donations_page_displays_only_donated_listings()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+
+        // Donated food item
+        $donatedItem = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Free Soup Meal',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 0,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '6:00 PM',
+            'donation_status' => true,
+        ]);
+
+        // Discounted sale food item
+        $discountedItem = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Paid Pizza Box',
+            'category' => 'Prepared Meals',
+            'quantity' => 5,
+            'price' => 120,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '7:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // 1. Available Donations page GET /donations
+        $response = $this->get('/donations');
+        $response->assertStatus(200)
+                 ->assertSee('Free Soup Meal')
+                 ->assertDontSee('Paid Pizza Box');
+
+        // 2. Search API on Available Donations page (type=donated & is_donation_page=1)
+        $apiResponse = $this->get('/marketplace/api/search?is_donation_page=1&type=donated');
+        $apiResponse->assertStatus(200);
+        
+        $data = $apiResponse->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Free Soup Meal', $data[0]['food_name']);
+        $this->assertTrue($data[0]['donation_status']);
+
+        // 3. Search "Pizza" on Available Donations API returns EMPTY because Pizza is discounted!
+        $searchResponse = $this->get('/marketplace/api/search?is_donation_page=1&type=donated&search=Pizza');
+        $searchResponse->assertStatus(200);
+        $this->assertCount(0, $searchResponse->json('data'));
+    }
+
+    public function test_dynamic_food_rating_and_reviews_workflow()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumerA = User::factory()->create(['role' => 'consumer']);
+        $consumerB = User::factory()->create(['role' => 'consumer']);
+
+        // 1. Newly created listing starts with 0.0 rating and 0 reviews
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Organic Apple Pie',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 5,
+            'price' => 90,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '4:00 PM',
+            'donation_status' => false,
+        ]);
+
+        $this->assertEquals(0.0, $food->average_rating);
+        $this->assertEquals(0, $food->reviews_count);
+
+        // 2. First consumer submits 5-star review
+        $responseA = $this->actingAs($consumerA)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 5,
+            'comment' => 'Delicious and fresh!',
+        ]);
+
+        $responseA->assertRedirect();
+        $this->assertEquals(5.0, $food->fresh()->average_rating);
+        $this->assertEquals(1, $food->fresh()->reviews_count);
+
+        // 3. Second consumer submits 3-star review (Average: (5 + 3) / 2 = 4.0)
+        $responseB = $this->actingAs($consumerB)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 3,
+            'comment' => 'Good but a bit sweet.',
+        ]);
+
+        $responseB->assertRedirect();
+        $this->assertEquals(4.0, $food->fresh()->average_rating);
+        $this->assertEquals(2, $food->fresh()->reviews_count);
+
+        // 4. API Search returns dynamic rating values
+        $apiRes = $this->get('/marketplace/api/search?search=Pie');
+        $apiRes->assertStatus(200)
+               ->assertJsonFragment([
+                   'average_rating' => 4.0,
+                   'reviews_count' => 2,
+               ]);
+    }
 }
