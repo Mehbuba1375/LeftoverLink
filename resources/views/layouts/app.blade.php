@@ -61,7 +61,6 @@
                 async fetchFilteredFoods() {
                     const path = window.location.pathname;
                     if (path !== '/' && path !== '/marketplace' && path !== '/donations') {
-                        window.location.href = '/donations?search=' + encodeURIComponent(this.filters.search);
                         return;
                     }
 
@@ -92,6 +91,42 @@
                         console.error("Search error:", e);
                     } finally {
                         this.loading = false;
+                    }
+                },
+                async toggleFavorite(foodId) {
+                    if (!{{ auth()->check() ? 'true' : 'false' }}) {
+                        window.location.href = "{{ route('login') }}";
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/favorites/toggle/${foodId}`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        if (res.status === 401) {
+                            window.location.href = "{{ route('login') }}";
+                            return;
+                        }
+
+                        const data = await res.json();
+                        
+                        const item = this.foods.find(f => f.id === foodId);
+                        if (item) {
+                            item.is_favorited = data.is_favorited;
+                        }
+
+                        if (window.location.pathname === '/favorites' && !data.is_favorited) {
+                            this.foods = this.foods.filter(f => f.id !== foodId);
+                            this.itemsCount = this.foods.length;
+                        }
+                    } catch (e) {
+                        console.error("Favorite toggle error:", e);
                     }
                 },
                 resetFilters() {

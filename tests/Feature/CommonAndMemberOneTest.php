@@ -271,4 +271,51 @@ class CommonAndMemberOneTest extends TestCase
                    'reviews_count' => 2,
                ]);
     }
+
+    public function test_consumer_can_favorite_and_unfavorite_food_listings()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Golden Croissant',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 5,
+            'price' => 60,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '5:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // 1. Toggle favorite -> Added to Favorites
+        $toggleRes1 = $this->actingAs($consumer)->postJson('/favorites/toggle/' . $food->id);
+        $toggleRes1->assertStatus(200)
+                   ->assertJson(['is_favorited' => true, 'message' => 'Added to Favorites.']);
+
+        $this->assertDatabaseHas('favorites', [
+            'user_id' => $consumer->id,
+            'food_id' => $food->id,
+        ]);
+
+        // 2. Favorites page displays favorited item
+        $favPage = $this->actingAs($consumer)->get('/favorites');
+        $favPage->assertStatus(200)
+                ->assertSee('Golden Croissant');
+
+        // 3. Toggle favorite again -> Removed from Favorites
+        $toggleRes2 = $this->actingAs($consumer)->postJson('/favorites/toggle/' . $food->id);
+        $toggleRes2->assertStatus(200)
+                   ->assertJson(['is_favorited' => false, 'message' => 'Removed from Favorites.']);
+
+        $this->assertDatabaseMissing('favorites', [
+            'user_id' => $consumer->id,
+            'food_id' => $food->id,
+        ]);
+
+        // 4. Favorites page displays friendly empty state
+        $favPageEmpty = $this->actingAs($consumer)->get('/favorites');
+        $favPageEmpty->assertStatus(200)
+                     ->assertSee('No Favorite Listings Yet');
+    }
 }

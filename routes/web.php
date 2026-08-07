@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
@@ -14,6 +15,9 @@ Route::get('/marketplace', [MarketplaceController::class, 'index'])->name('marke
 Route::get('/donations', [MarketplaceController::class, 'donations'])->name('donations.index');
 Route::get('/marketplace/api/search', [MarketplaceController::class, 'searchApi'])->name('marketplace.api.search');
 
+// Toggle Favorite (Handles guest redirect internally if unauthenticated)
+Route::post('/favorites/toggle/{food}', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
+
 // Guest Auth Routes
 Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
@@ -25,6 +29,9 @@ Route::middleware('guest')->group(function () {
 // Authenticated Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Favorites Page
+    Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
 
     // Review Submission
     Route::post('/foods/{food}/reviews', [ReviewController::class, 'store'])->name('reviews.store');

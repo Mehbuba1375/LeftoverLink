@@ -5,9 +5,11 @@
     $isOutOfStock = isset($item['quantity']) && $item['quantity'] <= 0;
     $reviewsCount = $item['reviews_count'] ?? 0;
     $avgRating = $item['average_rating'] ?? 0.0;
+    $foodId = $item['id'] ?? 0;
+    $isFavorited = !empty($item['is_favorited']) || (auth()->check() && $foodId && auth()->user()->favoriteFoods->contains($foodId));
 @endphp
 
-<div class="bg-white rounded-xl shadow-xs border border-gray-100/90 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300 group">
+<div x-data="{ favorited: {{ $isFavorited ? 'true' : 'false' }} }" class="bg-white rounded-xl shadow-xs border border-gray-100/90 overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300 group">
     
     <!-- Food Image Banner -->
     <div class="relative h-44 bg-gray-100 overflow-hidden shrink-0">
@@ -37,9 +39,25 @@
         </div>
 
         <!-- Favorite Heart Icon Button -->
-        <button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#666666] hover:text-[#EF4444] transition-colors shadow-xs">
-            <i class="fa-regular fa-heart text-sm"></i>
-        </button>
+        @auth
+            <form action="{{ route('favorites.toggle', $foodId) }}" method="POST" @submit.prevent="
+                favorited = !favorited;
+                $store.marketplace.toggleFavorite({{ $foodId }});
+            " class="inline">
+                @csrf
+                <button type="submit" 
+                        title="Toggle Favorite"
+                        class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-xs z-10">
+                    <i :class="favorited ? 'fa-solid fa-heart text-[#EF4444] scale-110' : 'fa-regular fa-heart text-[#666666] hover:text-[#EF4444]'" class="text-sm transition-transform"></i>
+                </button>
+            </form>
+        @else
+            <a href="{{ route('login') }}" 
+               title="Log in to save favorites"
+               class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#666666] hover:text-[#EF4444] transition-all duration-300 hover:scale-110 shadow-xs z-10">
+                <i class="fa-regular fa-heart text-sm"></i>
+            </a>
+        @endauth
 
         <!-- Category Badge -->
         <div class="absolute bottom-2 left-3">
