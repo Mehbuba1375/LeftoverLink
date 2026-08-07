@@ -73,7 +73,9 @@ class MarketplaceController extends Controller
 
         $this->applyFilters($query, $request);
 
-        $foods = $query->get()->map(function ($food) {
+        $userFavoriteIds = auth()->check() ? auth()->user()->favoriteFoods()->pluck('foods.id')->toArray() : [];
+
+        $foods = $query->get()->map(function ($food) use ($userFavoriteIds) {
             return [
                 'id' => $food->id,
                 'food_name' => $food->food_name,
@@ -88,6 +90,7 @@ class MarketplaceController extends Controller
                 'provider_id' => $food->user_id,
                 'average_rating' => $food->average_rating,
                 'reviews_count' => $food->reviews_count,
+                'is_favorited' => in_array($food->id, $userFavoriteIds),
                 'latitude' => $food->latitude,
                 'longitude' => $food->longitude,
             ];

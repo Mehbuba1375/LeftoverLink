@@ -22,7 +22,7 @@
             <nav class="space-y-1.5">
                 <!-- Home -->
                 <a href="{{ route('home') }}" 
-                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('home') && !request()->routeIs('donations.index') && !request()->routeIs('marketplace.index') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
+                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('home') && !request()->routeIs('donations.index') && !request()->routeIs('marketplace.index') && !request()->routeIs('favorites.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
                     <i class="fa-solid fa-house w-5 text-base text-center"></i>
                     <span>Home</span>
                 </a>
@@ -60,7 +60,8 @@
                 </a>
 
                 <!-- Favorites -->
-                <a href="#favorites" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32] transition-all duration-200">
+                <a href="{{ route('favorites.index') }}" 
+                   class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('favorites.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
                     <i class="fa-solid fa-heart w-5 text-base text-center"></i>
                     <span>Favorites</span>
                 </a>
@@ -140,7 +141,7 @@
                     <a href="#cart" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-cart-shopping w-5 text-center"></i> Cart
                     </a>
-                    <a href="#favorites" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
+                    <a href="{{ route('favorites.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-heart w-5 text-center"></i> Favorites
                     </a>
                     <a href="#history" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">

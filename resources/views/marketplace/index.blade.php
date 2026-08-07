@@ -106,8 +106,10 @@
                         </div>
 
                         <!-- Favorite Button -->
-                        <button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#666666] hover:text-[#EF4444] transition-colors shadow-xs">
-                            <i class="fa-regular fa-heart text-sm"></i>
+                        <button @click="$store.marketplace.toggleFavorite(item.id)" 
+                                :title="item.is_favorited ? 'Remove from Favorites' : 'Add to Favorites'"
+                                class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-xs z-10">
+                            <i :class="item.is_favorited ? 'fa-solid fa-heart text-[#EF4444] scale-110' : 'fa-regular fa-heart text-[#666666] hover:text-[#EF4444]'" class="text-sm transition-transform"></i>
                         </button>
 
                         <!-- Category Badge -->
