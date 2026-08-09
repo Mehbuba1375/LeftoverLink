@@ -12,10 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('consumer')->after('email'); // consumer, food_provider, ngo, admin
-            $table->string('phone')->nullable()->after('role');
-            $table->string('profile_photo')->nullable()->after('phone');
-            $table->string('address')->nullable()->after('profile_photo');
+            if (!Schema::hasColumn('users', 'role')) {
+                $table->string('role')->default('consumer')->after('email'); // consumer, food_provider, ngo, admin
+            }
+            if (!Schema::hasColumn('users', 'phone')) {
+                $table->string('phone')->nullable()->after('role');
+            }
+            if (!Schema::hasColumn('users', 'profile_photo')) {
+                $table->string('profile_photo')->nullable()->after('phone');
+            }
+            if (!Schema::hasColumn('users', 'address')) {
+                $table->string('address')->nullable()->after('profile_photo');
+            }
         });
     }
 
@@ -25,7 +33,15 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'phone', 'profile_photo', 'address']);
+            $cols = [];
+            if (Schema::hasColumn('users', 'role')) $cols[] = 'role';
+            if (Schema::hasColumn('users', 'phone')) $cols[] = 'phone';
+            if (Schema::hasColumn('users', 'profile_photo')) $cols[] = 'profile_photo';
+            if (Schema::hasColumn('users', 'address')) $cols[] = 'address';
+
+            if (!empty($cols)) {
+                $table->dropColumn($cols);
+            }
         });
     }
 };

@@ -4,29 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 
+#[Fillable(['reviewer_id', 'reviewable_id', 'reviewable_type', 'rating', 'comment', 'packing_feedback', 'food_feedback', 'time_feedback'])]
 class Review extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'food_id',
-        'user_id',
-        'rating',
-        'comment',
-    ];
-
-    protected $casts = [
-        'rating' => 'integer',
-    ];
-
-    public function food()
+    public function reviewer()
     {
-        return $this->belongsTo(Food::class);
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 
-    public function user()
+    public function reviewable()
     {
-        return $this->belongsTo(User::class);
+        return $this->morphTo();
     }
 }

@@ -127,10 +127,43 @@
                 <button disabled class="w-full py-2.5 bg-[#F5F5F5] text-[#666666] text-xs font-medium rounded-full cursor-not-allowed text-center">
                     Unavailable
                 </button>
+            @elseif(!empty($item['donation_status']))
+                {{-- Donated item --}}
+                @auth
+                    @if(auth()->user()->isNgo() || auth()->user()->isAdmin())
+                        <a href="{{ route('ngo.requests.create', $foodId) }}" class="block w-full py-2.5 bg-[#F59E0B] hover:bg-[#D97706] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#F59E0B]/20 hover:scale-105 transition-all">
+                            <i class="fa-solid fa-hand-holding-heart mr-1"></i> Request Collection
+                        </a>
+                    @else
+                        <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-xs font-medium rounded-full text-center cursor-not-allowed">
+                            Donation Only
+                        </button>
+                    @endif
+                @else
+                    <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#F59E0B] hover:bg-[#D97706] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#F59E0B]/20 hover:scale-105 transition-all">
+                        <i class="fa-solid fa-hand-holding-heart mr-1"></i> Request Collection
+                    </a>
+                @endauth
             @else
-                <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
-                    Reserve Food
-                </a>
+                {{-- Discounted food item --}}
+                @auth
+                    @if(auth()->user()->isConsumer() || auth()->user()->isAdmin())
+                        <form action="{{ route('reservations.store', $foodId) }}" method="POST" class="w-full">
+                            @csrf
+                            <button type="submit" class="w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
+                                Reserve Food
+                            </button>
+                        </form>
+                    @else
+                        <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-xs font-medium rounded-full text-center cursor-not-allowed">
+                            Discounted Food
+                        </button>
+                    @endif
+                @else
+                    <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
+                        Reserve Food
+                    </a>
+                @endauth
             @endif
         </div>
 
