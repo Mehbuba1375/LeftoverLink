@@ -102,7 +102,6 @@
                             <span x-show="!item.donation_status" class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#2E7D32] text-white shadow-xs">
                                 <i class="fa-solid fa-tags mr-1"></i> Discounted
                             </span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#22C55E] text-white">Active</span>
                         </div>
 
                         <!-- Favorite Button -->

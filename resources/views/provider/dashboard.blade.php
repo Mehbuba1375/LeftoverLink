@@ -88,8 +88,6 @@
                                 <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#EF4444] text-white">Expired</span>
                             @elseif($isOutOfStock)
                                 <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white">Out of Stock</span>
-                            @else
-                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#22C55E] text-white">Active</span>
                             @endif
 
                             @if($item->donation_status)
