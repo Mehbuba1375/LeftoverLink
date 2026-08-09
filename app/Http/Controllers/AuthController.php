@@ -4,79 +4,108 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
+    /**
+     * Display registration form.
+     */
+    public function showRegisterForm()
+    {
+        if (Auth::check()) {
+            return $this->redirectBasedOnRole(Auth::user());
+        }
+        return view('auth.register');
+    }
+
+    /**
+     * Handle registration request.
+     */
     public function register(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|string|in:donor,ngo,admin',
-            'organization_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
+            'phone' => 'required|string|max:20',
+            'address' => 'nullable|string|max:255',
+            'role' => 'required|string|in:consumer,food_provider,ngo',
+            'password' => ['required', 'confirmed', Password::min(6)],
         ]);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'organization_name' => $request->organization_name,
-            'phone' => $request->phone,
-            'address' => $request->address,
+            'name' => $validated['name'],
+            'email' => strtolower($validated['email']),
+            'phone' => $validated['phone'],
+            'address' => $validated['address'] ?? null,
+            'role' => $validated['role'],
+            'password' => Hash::make($validated['password']),
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        Auth::login($user);
 
-        return response()->json([
-            'message' => 'User registered successfully',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ], 201);
+        return $this->redirectBasedOnRole($user)
+            ->with('success', 'Welcome to LeftoverLink! Account created successfully.');
     }
 
+    /**
+     * Display login form.
+     */
+    public function showLoginForm()
+    {
+        if (Auth::check()) {
+            return $this->redirectBasedOnRole(Auth::user());
+        }
+        return view('auth.login');
+    }
+
+    /**
+     * Handle login request.
+     */
     public function login(Request $request)
     {
-        $request->validate([
+        $credentials = $request->validate([
             'email' => 'required|email',
-            'password' => 'required',
+            'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $request->session()->regenerate();
+            $user = Auth::user();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+            return $this->redirectBasedOnRole($user)
+                ->with('success', 'Logged in successfully!');
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ]);
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ])->onlyInput('email');
     }
 
-    public function me(Request $request)
-    {
-        return response()->json($request->user());
-    }
-
+    /**
+     * Handle user logout.
+     */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-        return response()->json([
-            'message' => 'Logged out successfully',
-        ]);
+        return redirect()->route('marketplace.index')
+            ->with('success', 'Logged out successfully.');
+    }
+
+    /**
+     * Helper to redirect based on user role.
+     */
+    protected function redirectBasedOnRole(User $user)
+    {
+        return match ($user->role) {
+            'food_provider' => redirect()->route('provider.dashboard'),
+            'admin' => redirect()->route('admin.dashboard'),
+            default => redirect()->route('marketplace.index'),
+        };
     }
 }

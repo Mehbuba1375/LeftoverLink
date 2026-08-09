@@ -2,147 +2,131 @@
 
 namespace Database\Seeders;
 
+use App\Models\Food;
 use App\Models\User;
-use App\Models\FoodListing;
-use App\Models\NgoFoodRequest;
-use App\Models\Review;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Seed the application's database with demo users & listings.
+     */
     public function run(): void
     {
-        // 1. Create Users
+        // 1. Admin User
         $admin = User::create([
-            'name' => 'Admin User',
+            'name' => 'Platform Administrator',
             'email' => 'admin@leftoverlink.com',
-            'password' => Hash::make('password123'),
+            'phone' => '+880 1700-000000',
+            'address' => 'Dhaka HQ',
             'role' => 'admin',
-            'phone' => '+8801700000001',
-            'address' => 'Dhaka, Bangladesh',
+            'password' => Hash::make('password'),
         ]);
 
-        $donor = User::create([
-            'name' => 'Donor User',
-            'email' => 'donor@leftoverlink.com',
-            'password' => Hash::make('password123'),
-            'role' => 'donor',
-            'organization_name' => 'Labaid Group',
-            'phone' => '+8801700000002',
-            'address' => 'Dhanmondi, Dhaka',
+        // 2. Food Providers
+        $bakery = User::create([
+            'name' => 'Green Oven Artisan Bakery',
+            'email' => 'provider@bakery.com',
+            'phone' => '+880 1811-223344',
+            'address' => 'Road 11, Banani, Dhaka',
+            'role' => 'food_provider',
+            'password' => Hash::make('password'),
         ]);
 
+        $restaurant = User::create([
+            'name' => 'Tasty Harvest Bistro',
+            'email' => 'provider@harvest.com',
+            'phone' => '+880 1922-334455',
+            'address' => 'Gulshan 2 Circle, Dhaka',
+            'role' => 'food_provider',
+            'password' => Hash::make('password'),
+        ]);
+
+        // 3. Consumer User
+        $consumer = User::create([
+            'name' => 'Sultana Rahman',
+            'email' => 'consumer@example.com',
+            'phone' => '+880 1633-445566',
+            'address' => 'Dhanmondi 27, Dhaka',
+            'role' => 'consumer',
+            'password' => Hash::make('password'),
+        ]);
+
+        // 4. NGO User
         $ngo = User::create([
-            'name' => 'NGO User',
-            'email' => 'ngo@leftoverlink.com',
-            'password' => Hash::make('password123'),
+            'name' => 'Hope Food Relief NGO',
+            'email' => 'ngo@care.org',
+            'phone' => '+880 1544-556677',
+            'address' => 'Mirpur 10, Dhaka',
             'role' => 'ngo',
-            'organization_name' => 'BRAC Food NGO',
-            'phone' => '+8801700000003',
-            'address' => 'Mohakhali, Dhaka',
+            'password' => Hash::make('password'),
         ]);
 
-        // 2. Create Food Listings
-        $listing1 = FoodListing::create([
-            'donor_id' => $donor->id,
-            'title' => 'Fresh Rice & Chicken Curry',
-            'description' => 'Packaged cooked meals from an event. Kept in clean conditions.',
-            'quantity' => 50,
-            'unit' => 'boxes',
-            'expiry_date' => now()->addDays(1)->toDateString(),
-            'pickup_location' => 'Labaid Hospital Dhanmondi Gate 2',
-            'food_type' => 'cooked',
-            'status' => 'available',
+        // 5. Seed Surplus Food Listings
+        Food::create([
+            'user_id' => $bakery->id,
+            'food_name' => 'Fresh Sourdough Bread Loaves (Batch of 4)',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 8,
+            'price' => 120.00,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '4:00 PM - 7:00 PM Today',
+            'donation_status' => false,
+            'latitude' => 23.7937,
+            'longitude' => 90.4066,
         ]);
 
-        $listing2 = FoodListing::create([
-            'donor_id' => $donor->id,
-            'title' => 'Bulk Raw Potatoes',
-            'description' => 'Unopened sacks of high quality potatoes.',
-            'quantity' => 100,
-            'unit' => 'kg',
-            'expiry_date' => now()->addDays(14)->toDateString(),
-            'pickup_location' => 'Labaid Warehouse, Tejgaon',
-            'food_type' => 'raw',
-            'status' => 'available',
+        Food::create([
+            'user_id' => $bakery->id,
+            'food_name' => 'Croissants & Danish Pastry Box',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 5,
+            'price' => 180.00,
+            'expiration_time' => now()->addHours(18),
+            'pickup_window' => '5:30 PM - 8:00 PM Today',
+            'donation_status' => false,
+            'latitude' => 23.7937,
+            'longitude' => 90.4066,
         ]);
 
-        $listing3 = FoodListing::create([
-            'donor_id' => $donor->id,
-            'title' => 'Assorted Packaged Biscuits',
-            'description' => 'Boxes of high energy protein biscuits.',
-            'quantity' => 200,
-            'unit' => 'pieces',
-            'expiry_date' => now()->addMonths(3)->toDateString(),
-            'pickup_location' => 'Dhanmondi, Dhaka',
-            'food_type' => 'packaged',
-            'status' => 'fulfilled',
+        Food::create([
+            'user_id' => $restaurant->id,
+            'food_name' => 'Surplus Grilled Chicken Lunch Boxes',
+            'category' => 'Prepared Meals',
+            'quantity' => 12,
+            'price' => 150.00,
+            'expiration_time' => now()->addHours(12),
+            'pickup_window' => '2:00 PM - 5:00 PM Today',
+            'donation_status' => false,
+            'latitude' => 23.7925,
+            'longitude' => 90.4167,
         ]);
 
-        // 3. Create NGO Food Requests
-        $request1 = NgoFoodRequest::create([
-            'ngo_id' => $ngo->id,
-            'food_listing_id' => $listing1->id,
-            'quantity_requested' => 30,
-            'message' => 'Need these for our mohakhali slum distribution program today.',
-            'contact_name' => 'BRAC Volunteer',
-            'pickup_time' => '12:00 PM - 02:00 PM',
-            'address' => 'Mohakhali Slum Area, Gate 1',
-            'contact_no' => '+8801700000003',
-            'status' => 'pending',
-            'requested_at' => now(),
+        Food::create([
+            'user_id' => $restaurant->id,
+            'food_name' => 'Organic Garden Salad Pack',
+            'category' => 'Fresh Produce',
+            'quantity' => 6,
+            'price' => 80.00,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '3:00 PM - 6:00 PM Today',
+            'donation_status' => false,
+            'latitude' => 23.7925,
+            'longitude' => 90.4167,
         ]);
 
-        // Mark listing1 status as requested because a request exists
-        $listing1->update(['status' => 'requested']);
-
-        // 4. Create Reviews
-        // Review for the Donor
-        Review::create([
-            'reviewer_id' => $ngo->id,
-            'reviewable_id' => $donor->id,
-            'reviewable_type' => User::class,
-            'rating' => 5,
-            'comment' => 'Always provides high quality fresh food. Great coordination!',
-            'packing_feedback' => 'Excellent clean packing in paper boxes.',
-            'food_feedback' => 'Very delicious, clean and warm cooked food.',
-            'time_feedback' => 'Picked up on time without any delay.',
+        Food::create([
+            'user_id' => $restaurant->id,
+            'food_name' => 'Community Relief Rice & Curry Meals (Free Donation)',
+            'category' => 'Prepared Meals',
+            'quantity' => 25,
+            'price' => 0.00,
+            'expiration_time' => now()->addHours(24),
+            'pickup_window' => '6:00 PM - 9:00 PM Today',
+            'donation_status' => true,
+            'latitude' => 23.7925,
+            'longitude' => 90.4167,
         ]);
-
-        // Review for the Food Listing 3
-        Review::create([
-            'reviewer_id' => $ngo->id,
-            'reviewable_id' => $listing3->id,
-            'reviewable_type' => FoodListing::class,
-            'rating' => 4,
-            'comment' => 'Great biscuits, kids loved them.',
-            'packing_feedback' => 'Original factory sealed cartons.',
-            'food_feedback' => 'High quality brand biscuits.',
-            'time_feedback' => 'Received within the expected pickup window.',
-        ]);
-
-        // 5. Generate API Tokens for Testing
-        $adminToken = $admin->createToken('test_token')->plainTextToken;
-        $donorToken = $donor->createToken('test_token')->plainTextToken;
-        $ngoToken = $ngo->createToken('test_token')->plainTextToken;
-
-        echo "\n============================================\n";
-        echo "LEFT OVER LINK - SEED RUN SUCCESSFUL!\n";
-        echo "============================================\n";
-        echo "TEST CREDENTIALS & TOKENS:\n\n";
-        echo "1. ADMIN USER\n";
-        echo "   Email:    admin@leftoverlink.com\n";
-        echo "   Password: password123\n";
-        echo "   Token:    $adminToken\n\n";
-        echo "2. DONOR USER\n";
-        echo "   Email:    donor@leftoverlink.com\n";
-        echo "   Password: password123\n";
-        echo "   Token:    $donorToken\n\n";
-        echo "3. NGO USER\n";
-        echo "   Email:    ngo@leftoverlink.com\n";
-        echo "   Password: password123\n";
-        echo "   Token:    $ngoToken\n";
-        echo "============================================\n\n";
     }
 }

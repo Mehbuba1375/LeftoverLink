@@ -2,27 +2,30 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'role', 'organization_name', 'phone', 'address'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'phone',
+        'profile_photo',
+        'address',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -31,25 +34,38 @@ class User extends Authenticatable
         ];
     }
 
-    // Relationships
-    public function foodListings()
+    public function foods()
     {
-        return $this->hasMany(FoodListing::class, 'donor_id');
+        return $this->hasMany(Food::class);
     }
 
-    public function foodRequests()
+    public function favorites()
     {
-        return $this->hasMany(NgoFoodRequest::class, 'ngo_id');
+        return $this->hasMany(Favorite::class);
     }
 
-    public function reviewsGiven()
+    public function favoriteFoods()
     {
-        return $this->hasMany(Review::class, 'reviewer_id');
+        return $this->belongsToMany(Food::class, 'favorites', 'user_id', 'food_id')->withTimestamps();
     }
 
-    // Morphic reviews received (if the user is reviewed, e.g. donor/ngo)
-    public function reviewsReceived()
+    public function isConsumer(): bool
     {
-        return $this->morphMany(Review::class, 'reviewable');
+        return $this->role === 'consumer';
+    }
+
+    public function isProvider(): bool
+    {
+        return $this->role === 'food_provider';
+    }
+
+    public function isNgo(): bool
+    {
+        return $this->role === 'ngo';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 }
