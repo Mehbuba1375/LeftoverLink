@@ -166,11 +166,52 @@
                             </div>
                         </div>
 
-                        <!-- Reserve Button -->
+                        <!-- Action Button -->
                         <div class="pt-1">
-                            <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
-                                Reserve Food
-                            </a>
+                            <!-- Donated Food Item -->
+                            <template x-if="item.donation_status">
+                                <div>
+                                    @auth
+                                        @if(auth()->user()->isNgo() || auth()->user()->isAdmin())
+                                            <a :href="`/ngo/requests/create/${item.id}`" class="block w-full py-2.5 bg-[#F59E0B] hover:bg-[#D97706] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#F59E0B]/20 hover:scale-105 transition-all">
+                                                <i class="fa-solid fa-hand-holding-heart mr-1"></i> Request Collection
+                                            </a>
+                                        @else
+                                            <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-xs font-medium rounded-full text-center cursor-not-allowed">
+                                                Donation Only
+                                            </button>
+                                        @endif
+                                    @else
+                                        <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#F59E0B] hover:bg-[#D97706] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#F59E0B]/20 hover:scale-105 transition-all">
+                                            <i class="fa-solid fa-hand-holding-heart mr-1"></i> Request Collection
+                                        </a>
+                                    @endauth
+                                </div>
+                            </template>
+
+                            <!-- Discounted Food Item -->
+                            <template x-if="!item.donation_status">
+                                <div>
+                                    @auth
+                                        @if(auth()->user()->isConsumer() || auth()->user()->isAdmin())
+                                            <form :action="`/reservations/${item.id}`" method="POST" class="w-full">
+                                                @csrf
+                                                <button type="submit" class="w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
+                                                    Reserve Food
+                                                </button>
+                                            </form>
+                                        @else
+                                            <button disabled class="w-full py-2.5 bg-gray-100 text-gray-400 text-xs font-medium rounded-full text-center cursor-not-allowed">
+                                                Discounted Food
+                                            </button>
+                                        @endif
+                                    @else
+                                        <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#2E7D32]/20 hover:scale-105 transition-all">
+                                            Reserve Food
+                                        </a>
+                                    @endauth
+                                </div>
+                            </template>
                         </div>
 
                     </div>

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Food;
+use App\Models\NgoWebRequest;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -116,7 +117,7 @@ class DatabaseSeeder extends Seeder
             'longitude' => 90.4167,
         ]);
 
-        Food::create([
+        $donationFood = Food::create([
             'user_id' => $restaurant->id,
             'food_name' => 'Community Relief Rice & Curry Meals (Free Donation)',
             'category' => 'Prepared Meals',
@@ -127,6 +128,47 @@ class DatabaseSeeder extends Seeder
             'donation_status' => true,
             'latitude' => 23.7925,
             'longitude' => 90.4167,
+        ]);
+
+        $donationFood2 = Food::create([
+            'user_id' => $bakery->id,
+            'food_name' => 'Surplus Whole Wheat Bread Loaves (Free Donation)',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 15,
+            'price' => 0.00,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '10:00 AM - 1:00 PM Tomorrow',
+            'donation_status' => true,
+            'latitude' => 23.7937,
+            'longitude' => 90.4066,
+        ]);
+
+        // 6. Seed NGO Food Requests (Module 1 - Sm Omer Azam)
+        NgoWebRequest::create([
+            'ngo_id' => $ngo->id,
+            'food_id' => $donationFood->id,
+            'quantity_requested' => 10,
+            'message' => 'We need these for our weekly food distribution at Mirpur slum area.',
+            'contact_name' => 'Rafiq Hasan',
+            'pickup_time' => '7:00 PM - 8:00 PM Today',
+            'address' => 'Mirpur 10 Community Center, Dhaka',
+            'contact_no' => '+880 1544-556677',
+            'status' => NgoWebRequest::STATUS_PENDING,
+            'requested_at' => now(),
+        ]);
+
+        NgoWebRequest::create([
+            'ngo_id' => $ngo->id,
+            'food_id' => $donationFood2->id,
+            'quantity_requested' => 5,
+            'message' => 'Bread for homeless shelter breakfast program.',
+            'contact_name' => 'Rafiq Hasan',
+            'pickup_time' => '11:00 AM Tomorrow',
+            'address' => 'Mirpur 10 Shelter, Block C',
+            'contact_no' => '+880 1544-556677',
+            'status' => NgoWebRequest::STATUS_APPROVED,
+            'requested_at' => now()->subHours(3),
+            'responded_at' => now()->subHour(),
         ]);
     }
 }
