@@ -7,6 +7,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\NgoWebRequestController;
 use Illuminate\Support\Facades\Route;
 
 // Public Marketplace Routes
@@ -41,6 +42,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile/info', [ProfileController::class, 'updateInfo'])->name('profile.updateInfo');
     Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.updatePassword');
 
+    // NGO Web UI Routes
+    Route::middleware('role:ngo,admin')->prefix('ngo')->name('ngo.')->group(function () {
+        Route::get('/requests', [NgoWebRequestController::class, 'index'])->name('requests');
+        Route::get('/requests/create/{food}', [NgoWebRequestController::class, 'create'])->name('requests.create');
+        Route::post('/requests/{food}', [NgoWebRequestController::class, 'store'])->name('requests.store');
+        Route::patch('/requests/{ngoWebRequest}/cancel', [NgoWebRequestController::class, 'cancel'])->name('requests.cancel');
+    });
+
     // Food Provider Routes
     Route::middleware('role:food_provider,admin')->prefix('provider')->name('provider.')->group(function () {
         Route::get('/dashboard', [ProviderDashboardController::class, 'index'])->name('dashboard');
@@ -48,6 +57,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/listings', [ProviderDashboardController::class, 'store'])->name('listings.store');
         Route::put('/listings/{food}', [ProviderDashboardController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{food}', [ProviderDashboardController::class, 'destroy'])->name('listings.destroy');
+        
+        // Incoming NGO requests management
+        Route::get('/ngo-requests', [NgoWebRequestController::class, 'providerRequests'])->name('ngo-requests');
+        Route::patch('/ngo-requests/{ngoWebRequest}/approve', [NgoWebRequestController::class, 'approve'])->name('ngo-requests.approve');
+        Route::patch('/ngo-requests/{ngoWebRequest}/reject', [NgoWebRequestController::class, 'reject'])->name('ngo-requests.reject');
     });
 
     // Admin Routes

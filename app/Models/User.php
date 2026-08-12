@@ -44,6 +44,11 @@ class User extends Authenticatable
         return $this->hasMany(Favorite::class);
     }
 
+    public function ngoWebRequests()
+    {
+        return $this->hasMany(NgoWebRequest::class, 'ngo_id');
+    }
+
     public function favoriteFoods()
     {
         return $this->belongsToMany(Food::class, 'favorites', 'user_id', 'food_id')->withTimestamps();

@@ -46,12 +46,17 @@ class Food extends Model
 
     public function reviews()
     {
-        return $this->hasMany(Review::class);
+        return $this->morphMany(Review::class, 'reviewable');
     }
 
     public function favorites()
     {
         return $this->hasMany(Favorite::class);
+    }
+
+    public function ngoWebRequests()
+    {
+        return $this->hasMany(NgoWebRequest::class, 'food_id');
     }
 
     public function favoritedByUsers()
