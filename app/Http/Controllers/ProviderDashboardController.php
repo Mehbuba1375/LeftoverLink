@@ -53,12 +53,19 @@ class ProviderDashboardController extends Controller
             'quantity' => 'required|integer|min:1',
             'price' => 'required|numeric|min:0',
             'expiration_time' => 'required|date',
-            'pickup_window' => 'required|string|max:255',
+            'pickup_start_time' => 'required|date_format:H:i',
+            'pickup_end_time' => 'required|date_format:H:i|after:pickup_start_time',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'donation_status' => 'required|boolean',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+        ], [
+            'pickup_end_time.after' => 'The last pickup time must be later than the starting pickup time.',
         ]);
+
+        $startFormatted = \Carbon\Carbon::parse($validated['pickup_start_time'])->format('g:i A');
+        $endFormatted = \Carbon\Carbon::parse($validated['pickup_end_time'])->format('g:i A');
+        $validated['pickup_window'] = "{$startFormatted} – {$endFormatted}";
 
         $validated['user_id'] = auth()->id();
 
@@ -98,12 +105,19 @@ class ProviderDashboardController extends Controller
             'quantity' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
             'expiration_time' => 'required|date',
-            'pickup_window' => 'required|string|max:255',
+            'pickup_start_time' => 'required|date_format:H:i',
+            'pickup_end_time' => 'required|date_format:H:i|after:pickup_start_time',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'donation_status' => 'required|boolean',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+        ], [
+            'pickup_end_time.after' => 'The last pickup time must be later than the starting pickup time.',
         ]);
+
+        $startFormatted = \Carbon\Carbon::parse($validated['pickup_start_time'])->format('g:i A');
+        $endFormatted = \Carbon\Carbon::parse($validated['pickup_end_time'])->format('g:i A');
+        $validated['pickup_window'] = "{$startFormatted} – {$endFormatted}";
 
         if ($request->hasFile('image')) {
             if ($food->image && Storage::disk('public')->exists($food->image)) {

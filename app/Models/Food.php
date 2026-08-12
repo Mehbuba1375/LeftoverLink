@@ -20,6 +20,8 @@ class Food extends Model
         'price',
         'expiration_time',
         'pickup_window',
+        'pickup_start_time',
+        'pickup_end_time',
         'image',
         'donation_status',
         'latitude',
@@ -66,6 +68,16 @@ class Food extends Model
     public function getReviewsCountAttribute()
     {
         return $this->reviews()->count();
+    }
+
+    public function getPickupWindowAttribute($value)
+    {
+        if ($this->pickup_start_time && $this->pickup_end_time) {
+            $start = \Carbon\Carbon::parse($this->pickup_start_time)->format('g:i A');
+            $end = \Carbon\Carbon::parse($this->pickup_end_time)->format('g:i A');
+            return "{$start} – {$end}";
+        }
+        return $value ?? 'Flexible';
     }
 
     public function scopeAvailable($query)

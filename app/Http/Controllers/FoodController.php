@@ -64,12 +64,20 @@ class FoodController extends Controller
             'quantity' => 'required|integer|min:1',
             'price' => 'required|numeric|min:0',
             'expiration_time' => 'required|date|after:now',
-            'pickup_window' => 'required|string|max:255',
+            'pickup_start_time' => 'nullable|date_format:H:i',
+            'pickup_end_time' => 'nullable|date_format:H:i|after:pickup_start_time',
+            'pickup_window' => 'nullable|string|max:255',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'donation_status' => 'required|boolean',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
         ]);
+
+        if (!empty($validated['pickup_start_time']) && !empty($validated['pickup_end_time'])) {
+            $startFormatted = \Carbon\Carbon::parse($validated['pickup_start_time'])->format('g:i A');
+            $endFormatted = \Carbon\Carbon::parse($validated['pickup_end_time'])->format('g:i A');
+            $validated['pickup_window'] = "{$startFormatted} – {$endFormatted}";
+        }
 
         $validated['user_id'] = auth()->id() ?? $request->input('user_id');
 

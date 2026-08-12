@@ -46,7 +46,8 @@ class CommonAndMemberOneTest extends TestCase
             'quantity' => 10,
             'price' => 100,
             'expiration_time' => now()->addDays(2)->format('Y-m-d\TH:i'),
-            'pickup_window' => '4:00 PM - 7:00 PM',
+            'pickup_start_time' => '16:00',
+            'pickup_end_time' => '19:00',
             'donation_status' => '0',
             'image' => $file,
         ]);
@@ -317,5 +318,24 @@ class CommonAndMemberOneTest extends TestCase
         $favPageEmpty = $this->actingAs($consumer)->get('/favorites');
         $favPageEmpty->assertStatus(200)
                      ->assertSee('No Favorite Listings Yet');
+    }
+
+    public function test_pickup_end_time_must_be_after_pickup_start_time()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+
+        // Invalid time: end time (10:00) is before start time (14:00)
+        $response = $this->actingAs($provider)->post('/provider/listings', [
+            'food_name' => 'Test Sandwich',
+            'category' => 'Prepared Meals',
+            'quantity' => 5,
+            'price' => 50,
+            'expiration_time' => now()->addDays(1)->format('Y-m-d\TH:i'),
+            'pickup_start_time' => '14:00',
+            'pickup_end_time' => '10:00',
+            'donation_status' => '0',
+        ]);
+
+        $response->assertSessionHasErrors(['pickup_end_time']);
     }
 }

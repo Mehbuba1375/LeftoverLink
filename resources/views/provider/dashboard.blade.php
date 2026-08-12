@@ -3,7 +3,7 @@
 @section('content')
 <div x-data="{ 
     editModal: false, 
-    editItem: { id: null, food_name: '', category: '', quantity: 1, price: 0, expiration_time: '', pickup_window: '', donation_status: false }
+    editItem: { id: null, food_name: '', category: '', quantity: 1, price: 0, expiration_time: '', pickup_start_time: '10:00', pickup_end_time: '14:00', donation_status: false }
 }" class="space-y-8 pb-12">
 
     <!-- Header -->
@@ -140,7 +140,8 @@
                                     quantity: {{ $item->quantity }},
                                     price: {{ $item->price }},
                                     expiration_time: '{{ $item->expiration_time ? $item->expiration_time->format('Y-m-d\TH:i') : '' }}',
-                                    pickup_window: '{{ addslashes($item->pickup_window) }}',
+                                    pickup_start_time: '{{ $item->pickup_start_time ? \Carbon\Carbon::parse($item->pickup_start_time)->format('H:i') : '10:00' }}',
+                                    pickup_end_time: '{{ $item->pickup_end_time ? \Carbon\Carbon::parse($item->pickup_end_time)->format('H:i') : '14:00' }}',
                                     donation_status: {{ $item->donation_status ? 'true' : 'false' }}
                                 };
                                 editModal = true;
@@ -216,8 +217,13 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-[#222222] mb-1">Pickup Window *</label>
-                        <input type="text" name="pickup_window" x-model="editItem.pickup_window" required class="w-full px-4 py-2.5 bg-[#F5F5F5] border border-gray-200 rounded-xl text-sm text-[#222222]">
+                        <label class="block text-xs font-semibold text-[#222222] mb-1">Starting Pickup Time *</label>
+                        <input type="time" name="pickup_start_time" x-model="editItem.pickup_start_time" required class="w-full px-4 py-2.5 bg-[#F5F5F5] border border-gray-200 rounded-xl text-sm text-[#222222]">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-[#222222] mb-1">Last Pickup Time *</label>
+                        <input type="time" name="pickup_end_time" x-model="editItem.pickup_end_time" required class="w-full px-4 py-2.5 bg-[#F5F5F5] border border-gray-200 rounded-xl text-sm text-[#222222]">
                     </div>
 
                     <div>

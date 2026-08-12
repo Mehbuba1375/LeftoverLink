@@ -91,13 +91,20 @@
                     @error('quantity') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
 
-                <!-- Pickup Window -->
+                <!-- Starting Pickup Time -->
                 <div>
-                    <label class="block text-xs font-semibold text-[#222222] mb-1.5">Pickup Window <span class="text-red-500">*</span></label>
-                    <input type="text" name="pickup_window" value="{{ old('pickup_window') }}" required 
-                           placeholder="e.g. 5:00 PM - 8:00 PM Today" 
+                    <label class="block text-xs font-semibold text-[#222222] mb-1.5">Starting Pickup Time <span class="text-red-500">*</span></label>
+                    <input type="time" name="pickup_start_time" value="{{ old('pickup_start_time', '10:00') }}" required 
                            class="w-full px-4 py-3 bg-[#F5F5F5] border border-gray-200 rounded-xl text-sm text-[#222222] focus:outline-none focus:border-[#2E7D32] focus:bg-white transition-colors">
-                    @error('pickup_window') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    @error('pickup_start_time') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <!-- Last Pickup Time -->
+                <div>
+                    <label class="block text-xs font-semibold text-[#222222] mb-1.5">Last Pickup Time <span class="text-red-500">*</span></label>
+                    <input type="time" name="pickup_end_time" value="{{ old('pickup_end_time', '14:00') }}" required 
+                           class="w-full px-4 py-3 bg-[#F5F5F5] border border-gray-200 rounded-xl text-sm text-[#222222] focus:outline-none focus:border-[#2E7D32] focus:bg-white transition-colors">
+                    @error('pickup_end_time') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Expiration Date & Time -->
