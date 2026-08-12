@@ -121,16 +121,90 @@
             </div>
         </div>
 
-        <!-- Action Button -->
-        <div class="pt-1">
+        <!-- Action Buttons -->
+        <div x-data="{ reserveModal: false, reserveQty: 1, ngoModal: false, ngoQty: 1 }" class="pt-1 space-y-2">
             @if($isExpired || $isOutOfStock)
                 <button disabled class="w-full py-2.5 bg-[#F5F5F5] text-[#666666] text-xs font-medium rounded-full cursor-not-allowed text-center">
                     Unavailable
                 </button>
             @else
-                <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#EF4444]/20 hover:scale-105 transition-all">
-                    Reserve Food
-                </a>
+                @guest
+                    <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#EF4444]/20 hover:scale-105 transition-all">
+                        Reserve Food
+                    </a>
+                @else
+                    {{-- Reserve Food Button (Available to Consumers, Providers, NGOs) --}}
+                    @if(($item['user_id'] ?? null) !== auth()->id())
+                        <button type="button" @click="reserveModal = true" class="block w-full py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#EF4444]/20 hover:scale-105 transition-all">
+                            Reserve Food
+                        </button>
+
+                        {{-- Reserve Quantity Modal --}}
+                        <div x-show="reserveModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+                            <div @click.outside="reserveModal = false" class="bg-white max-w-sm w-full p-6 rounded-2xl shadow-2xl space-y-4 text-left">
+                                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                    <h3 class="text-base font-heading font-bold text-[#222222]">Reserve {{ $item['food_name'] ?? 'Food Item' }}</h3>
+                                    <button type="button" @click="reserveModal = false" class="text-[#666666] hover:text-[#222222]"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <form action="{{ route('reservations.store', $item['id']) }}" method="POST" class="space-y-4">
+                                    @csrf
+                                    <div>
+                                        <label class="block text-xs font-semibold text-[#222222] mb-1">Select Quantity (Available: {{ $item['quantity'] }})</label>
+                                        <div class="flex items-center gap-3">
+                                            <button type="button" @click="if(reserveQty > 1) reserveQty--" class="w-9 h-9 rounded-lg bg-[#F5F5F5] hover:bg-gray-200 text-[#222222] font-bold">-</button>
+                                            <input type="number" name="quantity" x-model="reserveQty" min="1" max="{{ $item['quantity'] }}" required class="w-20 text-center py-2 bg-[#F5F5F5] border border-gray-200 rounded-lg text-sm font-bold text-[#222222]">
+                                            <button type="button" @click="if(reserveQty < {{ $item['quantity'] }}) reserveQty++" class="w-9 h-9 rounded-lg bg-[#F5F5F5] hover:bg-gray-200 text-[#222222] font-bold">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                        <button type="button" @click="reserveModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
+                                        <button type="submit" class="px-5 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full shadow-md">Confirm Reservation</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    @else
+                        <button type="button" onclick="alert('You cannot reserve your own food listing.')" class="block w-full py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#EF4444]/20 hover:scale-105 transition-all">
+                            Reserve Food
+                        </button>
+                    @endif
+
+                    {{-- Additional Request Collection Button (NGOs on Donated Food) --}}
+                    @if(!empty($item['donation_status']) && auth()->user()->isNgo())
+                        <button type="button" @click="ngoModal = true" class="block w-full py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full text-center shadow-xs transition-all">
+                            <i class="fa-solid fa-hand-holding-heart mr-1"></i> Request Collection
+                        </button>
+
+                        {{-- NGO Request Quantity Modal --}}
+                        <div x-show="ngoModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+                            <div @click.outside="ngoModal = false" class="bg-white max-w-sm w-full p-6 rounded-2xl shadow-2xl space-y-4 text-left">
+                                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                    <h3 class="text-base font-heading font-bold text-[#222222]">Request Donation: {{ $item['food_name'] ?? 'Food Item' }}</h3>
+                                    <button type="button" @click="ngoModal = false" class="text-[#666666] hover:text-[#222222]"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <form action="{{ route('food-requests.store', $item['id']) }}" method="POST" class="space-y-4">
+                                    @csrf
+                                    <div>
+                                        <label class="block text-xs font-semibold text-[#222222] mb-1">Requested Quantity (Available: {{ $item['quantity'] }})</label>
+                                        <div class="flex items-center gap-3">
+                                            <button type="button" @click="if(ngoQty > 1) ngoQty--" class="w-9 h-9 rounded-lg bg-[#F5F5F5] hover:bg-gray-200 text-[#222222] font-bold">-</button>
+                                            <input type="number" name="quantity" x-model="ngoQty" min="1" max="{{ $item['quantity'] }}" required class="w-20 text-center py-2 bg-[#F5F5F5] border border-gray-200 rounded-lg text-sm font-bold text-[#222222]">
+                                            <button type="button" @click="if(ngoQty < {{ $item['quantity'] }}) ngoQty++" class="w-9 h-9 rounded-lg bg-[#F5F5F5] hover:bg-gray-200 text-[#222222] font-bold">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-[#222222] mb-1">Organization Message / Notes (Optional)</label>
+                                        <textarea name="notes" rows="2" placeholder="Describe distribution plan or notes for donor..." class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]"></textarea>
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                        <button type="button" @click="ngoModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
+                                        <button type="submit" class="px-5 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full shadow-md">Submit Request</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+                @endguest
             @endif
         </div>
 

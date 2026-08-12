@@ -166,6 +166,202 @@
         </div>
     </div>
 
+    <!-- Incoming Food Reservations Section -->
+    <div class="space-y-4 pt-6 border-t border-gray-200/60">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-heading font-bold text-[#222222]">Incoming Food Reservations</h2>
+                <p class="text-xs text-[#666666]">Track food reservations made by consumers, providers, and partner organizations</p>
+            </div>
+            <span class="text-xs text-[#666666]">Active: <strong class="text-[#2E7D32]">{{ $stats['reservations_active'] ?? 0 }}</strong> / Total: {{ $stats['reservations_total'] ?? 0 }}</span>
+        </div>
+
+        @if(isset($incomingReservations) && $incomingReservations->count() > 0)
+            <div class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-[#222222]">
+                        <thead class="bg-[#F5F5F5] text-[#666666] uppercase font-semibold text-[10px] tracking-wider border-b border-gray-100">
+                            <tr>
+                                <th class="p-4">Reserved Item</th>
+                                <th class="p-4">Reserved By</th>
+                                <th class="p-4">Quantity</th>
+                                <th class="p-4">Pickup Window</th>
+                                <th class="p-4">Date</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($incomingReservations as $res)
+                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                    <td class="p-4 font-bold text-[#222222]">
+                                        <div class="flex items-center gap-3">
+                                            <img src="{{ $res->food && $res->food->image ? asset('storage/' . $res->food->image) : asset('images/default-food.png') }}" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                                            <span class="truncate max-w-[150px]">{{ $res->food->food_name ?? 'Deleted Item' }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="font-medium text-[#222222]">{{ $res->user->name ?? 'Customer' }}</div>
+                                        <div class="text-[10px] text-[#666666]">{{ $res->user->phone ?? $res->user->email }} ({{ ucfirst(str_replace('_', ' ', $res->user->role ?? 'user')) }})</div>
+                                    </td>
+                                    <td class="p-4 font-bold text-[#2E7D32]">
+                                        {{ $res->quantity }} items
+                                    </td>
+                                    <td class="p-4 text-[#666666]">
+                                        {{ $res->food->pickup_window ?? 'N/A' }}
+                                    </td>
+                                    <td class="p-4 text-[#666666]">
+                                        {{ $res->created_at->format('M d, Y h:i A') }}
+                                    </td>
+                                    <td class="p-4">
+                                        @if($res->isReserved())
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#EF4444] text-white">
+                                                Reserved
+                                            </span>
+                                        @elseif($res->isCompleted())
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#22C55E] text-white">
+                                                Completed
+                                            </span>
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-500 text-white">
+                                                Cancelled
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="p-4 text-right space-x-2">
+                                        @if($res->isReserved())
+                                            <form action="{{ route('reservations.complete', $res->id) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="px-3 py-1.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-[11px] font-semibold rounded-lg shadow-xs transition-colors">
+                                                    Mark Completed
+                                                </button>
+                                            </form>
+
+                                            <form action="{{ route('reservations.cancel', $res->id) }}" method="POST" class="inline" onsubmit="return confirm('Cancel this reservation and restore stock?')">
+                                                @csrf
+                                                <button type="submit" class="px-3 py-1.5 bg-red-50 hover:bg-[#EF4444] text-[#EF4444] hover:text-white text-[11px] font-semibold rounded-lg transition-colors">
+                                                    Cancel
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-[11px] text-gray-400 italic">No actions available</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @else
+            <div class="bg-white rounded-xl border border-gray-100 p-8 text-center space-y-2 shadow-xs">
+                <div class="w-12 h-12 rounded-full bg-[#FFF9E8] text-[#2E7D32] flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <h4 class="font-bold text-sm text-[#222222]">No Food Reservations Yet</h4>
+                <p class="text-xs text-[#666666]">Reservations made by customers for your available food items will appear here.</p>
+            </div>
+        @endif
+    </div>
+
+    <!-- Incoming NGO Collection Requests Section -->
+    <div class="space-y-4 pt-6 border-t border-gray-200/60">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-heading font-bold text-[#222222]">Incoming NGO Collection Requests</h2>
+                <p class="text-xs text-[#666666]">Review and approve food collection requests submitted by partner NGOs</p>
+            </div>
+            <span class="text-xs text-[#666666]">Pending: <strong class="text-amber-600">{{ $stats['ngo_requests_pending'] ?? 0 }}</strong> / Total: {{ $stats['ngo_requests_total'] ?? 0 }}</span>
+        </div>
+
+        @if(isset($ngoRequests) && $ngoRequests->count() > 0)
+            <div class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-[#222222]">
+                        <thead class="bg-[#F5F5F5] text-[#666666] uppercase font-semibold text-[10px] tracking-wider border-b border-gray-100">
+                            <tr>
+                                <th class="p-4">Donated Item</th>
+                                <th class="p-4">NGO Name</th>
+                                <th class="p-4">Requested Qty</th>
+                                <th class="p-4">Pickup Window</th>
+                                <th class="p-4">Date</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($ngoRequests as $req)
+                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                    <td class="p-4 font-bold text-[#222222]">
+                                        <div class="flex items-center gap-3">
+                                            <img src="{{ $req->food && $req->food->image ? asset('storage/' . $req->food->image) : asset('images/default-food.png') }}" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                                            <span class="truncate max-w-[150px]">{{ $req->food->food_name ?? 'Deleted Item' }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="font-medium text-[#222222]">{{ $req->user->name ?? 'NGO Organization' }}</div>
+                                        <div class="text-[10px] text-[#666666]">{{ $req->user->phone ?? $req->user->email }}</div>
+                                    </td>
+                                    <td class="p-4 font-bold text-[#2E7D32]">
+                                        {{ $req->quantity }} items
+                                    </td>
+                                    <td class="p-4 text-[#666666]">
+                                        {{ $req->food->pickup_window ?? 'N/A' }}
+                                    </td>
+                                    <td class="p-4 text-[#666666]">
+                                        {{ $req->created_at->format('M d, Y h:i A') }}
+                                    </td>
+                                    <td class="p-4">
+                                        @if($req->isPending())
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                                Pending
+                                            </span>
+                                        @elseif($req->isApproved())
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#22C55E] text-white">
+                                                Approved
+                                            </span>
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                                                Rejected
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="p-4 text-right space-x-2">
+                                        @if($req->isPending())
+                                            <form action="{{ route('food-requests.approve', $req->id) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="px-3 py-1.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-[11px] font-semibold rounded-lg shadow-xs transition-colors">
+                                                    Approve
+                                                </button>
+                                            </form>
+
+                                            <form action="{{ route('food-requests.reject', $req->id) }}" method="POST" class="inline" onsubmit="return confirm('Reject this NGO collection request?')">
+                                                @csrf
+                                                <button type="submit" class="px-3 py-1.5 bg-red-50 hover:bg-[#EF4444] text-[#EF4444] hover:text-white text-[11px] font-semibold rounded-lg transition-colors">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-[11px] text-gray-400 italic">No actions available</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @else
+            <div class="bg-white rounded-xl border border-gray-100 p-8 text-center space-y-2 shadow-xs">
+                <div class="w-12 h-12 rounded-full bg-[#FFF9E8] text-[#2E7D32] flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-hand-holding-heart"></i>
+                </div>
+                <h4 class="font-bold text-sm text-[#222222]">No NGO Collection Requests Yet</h4>
+                <p class="text-xs text-[#666666]">Requests submitted by NGOs for your community donations will appear here.</p>
+            </div>
+        @endif
+    </div>
+
     <!-- Edit Listing Modal -->
     <div x-show="editModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
         <div @click.outside="editModal = false" class="bg-white max-w-xl w-full p-6 sm:p-8 rounded-xl shadow-2xl space-y-6">

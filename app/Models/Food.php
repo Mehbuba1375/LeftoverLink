@@ -54,6 +54,16 @@ class Food extends Model
         return $this->hasMany(Favorite::class);
     }
 
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
+    public function foodRequests()
+    {
+        return $this->hasMany(FoodRequest::class);
+    }
+
     public function favoritedByUsers()
     {
         return $this->belongsToMany(User::class, 'favorites', 'food_id', 'user_id')->withTimestamps();

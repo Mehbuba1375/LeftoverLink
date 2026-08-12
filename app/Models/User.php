@@ -39,6 +39,16 @@ class User extends Authenticatable
         return $this->hasMany(Food::class);
     }
 
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
+    public function foodRequests()
+    {
+        return $this->hasMany(FoodRequest::class);
+    }
+
     public function favorites()
     {
         return $this->hasMany(Favorite::class);

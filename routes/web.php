@@ -3,9 +3,11 @@
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\FoodRequestController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
+use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +34,19 @@ Route::middleware('auth')->group(function () {
 
     // Favorites Page
     Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+
+    // NGO Food Request Routes
+    Route::get('/food-requests', [FoodRequestController::class, 'index'])->name('food-requests.index');
+    Route::post('/foods/{food}/request', [FoodRequestController::class, 'store'])->name('food-requests.store');
+    Route::post('/food-requests/{foodRequest}/approve', [FoodRequestController::class, 'approve'])->name('food-requests.approve');
+    Route::post('/food-requests/{foodRequest}/reject', [FoodRequestController::class, 'reject'])->name('food-requests.reject');
+
+    // Reservation Management Routes
+    Route::get('/reservations', [ReservationController::class, 'consumerHistory'])->name('reservations.index');
+    Route::post('/foods/{food}/reserve', [ReservationController::class, 'store'])->name('reservations.store');
+    Route::match(['post', 'patch'], '/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
+    Route::match(['post', 'patch'], '/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
+    Route::match(['post', 'patch'], '/reservations/{reservation}/provider-cancel', [ReservationController::class, 'providerCancel'])->name('reservations.provider-cancel');
 
     // Review Submission
     Route::post('/foods/{food}/reviews', [ReviewController::class, 'store'])->name('reviews.store');

@@ -18,14 +18,28 @@ class ProviderDashboardController extends Controller
             ->latest()
             ->get();
 
+        $ngoRequests = \App\Models\FoodRequest::whereHas('food', fn($q) => $q->where('user_id', $user->id))
+            ->with(['food', 'user'])
+            ->latest()
+            ->get();
+
+        $incomingReservations = \App\Models\Reservation::whereHas('food', fn($q) => $q->where('user_id', $user->id))
+            ->with(['food', 'user'])
+            ->latest('reserved_at')
+            ->get();
+
         $stats = [
             'total' => $listings->count(),
             'active' => $listings->filter(fn($f) => $f->quantity > 0 && $f->expiration_time > now())->count(),
             'expired' => $listings->filter(fn($f) => $f->expiration_time <= now())->count(),
             'out_of_stock' => $listings->filter(fn($f) => $f->quantity == 0)->count(),
+            'ngo_requests_total' => $ngoRequests->count(),
+            'ngo_requests_pending' => $ngoRequests->where('status', \App\Models\FoodRequest::STATUS_PENDING)->count(),
+            'reservations_total' => $incomingReservations->count(),
+            'reservations_active' => $incomingReservations->where('status', \App\Models\Reservation::STATUS_RESERVED)->count(),
         ];
 
-        return view('provider.dashboard', compact('listings', 'stats'));
+        return view('provider.dashboard', compact('listings', 'stats', 'ngoRequests', 'incomingReservations'));
     }
 
     /**
