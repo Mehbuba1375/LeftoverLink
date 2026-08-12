@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Food;
+use App\Models\FoodRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -337,5 +338,223 @@ class CommonAndMemberOneTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors(['pickup_end_time']);
+    }
+
+    public function test_ngo_food_request_workflow()
+    {
+        $providerA = User::factory()->create(['role' => 'food_provider']);
+        $providerB = User::factory()->create(['role' => 'food_provider']);
+        $ngoUser = User::factory()->create(['role' => 'ngo']);
+
+        // Donated food listing
+        $donatedFood = Food::create([
+            'user_id' => $providerA->id,
+            'food_name' => 'Community Surplus Meals',
+            'category' => 'Prepared Meals',
+            'quantity' => 20,
+            'price' => 0,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '4:00 PM - 7:00 PM',
+            'donation_status' => true,
+        ]);
+
+        // Non-donated food listing (for sale)
+        $saleFood = Food::create([
+            'user_id' => $providerA->id,
+            'food_name' => 'Paid Pizza Slice',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 100,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '4:00 PM - 7:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // Test 1: NGO submits collection request for donated food
+        $reqRes = $this->actingAs($ngoUser)->post('/foods/' . $donatedFood->id . '/request', [
+            'quantity' => 15,
+            'notes' => 'Food distribution to shelter',
+        ]);
+        $reqRes->assertRedirect('/food-requests');
+
+        $this->assertDatabaseHas('food_requests', [
+            'user_id' => $ngoUser->id,
+            'food_id' => $donatedFood->id,
+            'quantity' => 15,
+            'status' => 'pending',
+        ]);
+
+        // Test 2: NGO request history page displays submitted request
+        $ngoPage = $this->actingAs($ngoUser)->get('/food-requests');
+        $ngoPage->assertStatus(200)
+                ->assertSee('Community Surplus Meals');
+
+        // Test 3: NGO cannot request non-donated (discounted sale) food
+        $reqSale = $this->actingAs($ngoUser)->postJson('/foods/' . $saleFood->id . '/request', [
+            'quantity' => 5,
+        ]);
+        $reqSale->assertStatus(422)
+                ->assertJsonFragment(['message' => 'Collection requests can only be submitted for donated food listings.']);
+
+        // Test 4: Provider A approves the NGO request
+        $foodRequest = FoodRequest::where('user_id', $ngoUser->id)->first();
+        $approveRes = $this->actingAs($providerA)->post('/food-requests/' . $foodRequest->id . '/approve');
+        $approveRes->assertRedirect();
+
+        $this->assertEquals('approved', $foodRequest->fresh()->status);
+        $this->assertNotNull($foodRequest->fresh()->approved_at);
+
+        // Test 5: Authorization - Provider B cannot approve/reject Provider A's food request
+        $donatedFood2 = Food::create([
+            'user_id' => $providerA->id,
+            'food_name' => 'Bread Loaves Donation',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 10,
+            'price' => 0,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '5:00 PM - 8:00 PM',
+            'donation_status' => true,
+        ]);
+
+        $this->actingAs($ngoUser)->post('/foods/' . $donatedFood2->id . '/request', ['quantity' => 5]);
+        $foodRequest2 = FoodRequest::where('food_id', $donatedFood2->id)->first();
+
+        $unauthApprove = $this->actingAs($providerB)->postJson('/food-requests/' . $foodRequest2->id . '/approve');
+        $unauthApprove->assertStatus(403);
+
+        // Test 6: Provider A rejects the second NGO request
+        $rejectRes = $this->actingAs($providerA)->post('/food-requests/' . $foodRequest2->id . '/reject');
+        $rejectRes->assertRedirect();
+        $this->assertEquals('rejected', $foodRequest2->fresh()->status);
+    }
+
+    public function test_ngo_reservation_management_workflow()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $ngoUser = User::factory()->create(['role' => 'ngo']);
+
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Fresh Apple Baskets',
+            'category' => 'Fresh Produce',
+            'quantity' => 10,
+            'price' => 50,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'pickup_start_time' => '10:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+        ]);
+
+        // Test 1: NGO reserves 3 items
+        $reserveRes = $this->actingAs($ngoUser)->post('/foods/' . $food->id . '/reserve', [
+            'quantity' => 3,
+        ]);
+        $reserveRes->assertRedirect('/reservations');
+
+        // Verify stock decrements to 7
+        $this->assertEquals(7, $food->fresh()->quantity);
+
+        // Verify reservation is stored in database
+        $this->assertDatabaseHas('reservations', [
+            'user_id' => $ngoUser->id,
+            'food_id' => $food->id,
+            'quantity' => 3,
+            'status' => 'reserved',
+        ]);
+
+        // Test 2: NGO Reservation History displays active reservation
+        $historyRes = $this->actingAs($ngoUser)->get('/reservations');
+        $historyRes->assertStatus(200)
+                   ->assertSee('Fresh Apple Baskets');
+
+        // Test 3: Provider updates NGO reservation status to Completed
+        $reservation = \App\Models\Reservation::where('user_id', $ngoUser->id)->first();
+        $compRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/complete');
+        $compRes->assertRedirect();
+
+        $this->assertEquals('completed', $reservation->fresh()->status);
+        $this->assertNotNull($reservation->fresh()->completed_at);
+
+        // Test 4: NGO Reservation History reflects updated status
+        $historyRes2 = $this->actingAs($ngoUser)->get('/reservations');
+        $historyRes2->assertStatus(200)
+                    ->assertSee('Completed');
+    }
+
+    public function test_provider_dashboard_displays_incoming_reservations_with_isolation()
+    {
+        $providerA = User::factory()->create(['role' => 'food_provider']);
+        $providerB = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        $foodA = Food::create([
+            'user_id' => $providerA->id,
+            'food_name' => 'Provider A Special Lasagna',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 150,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '12:00 PM - 3:00 PM',
+            'pickup_start_time' => '12:00',
+            'pickup_end_time' => '15:00',
+            'donation_status' => false,
+        ]);
+
+        $foodB = Food::create([
+            'user_id' => $providerB->id,
+            'food_name' => 'Provider B Tasty Burger',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 120,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '1:00 PM - 4:00 PM',
+            'pickup_start_time' => '13:00',
+            'pickup_end_time' => '16:00',
+            'donation_status' => false,
+        ]);
+
+        // Consumer reserves Food A (Provider A's listing)
+        $this->actingAs($consumer)->post('/foods/' . $foodA->id . '/reserve', ['quantity' => 2]);
+
+        // Consumer reserves Food B (Provider B's listing)
+        $this->actingAs($consumer)->post('/foods/' . $foodB->id . '/reserve', ['quantity' => 3]);
+
+        // Test Provider A Dashboard: sees reservation for Food A, but NOT Food B
+        $dashA = $this->actingAs($providerA)->get('/provider/dashboard');
+        $dashA->assertStatus(200)
+              ->assertSee('Provider A Special Lasagna')
+              ->assertDontSee('Provider B Tasty Burger');
+
+        // Test Provider B Dashboard: sees reservation for Food B, but NOT Food A
+        $dashB = $this->actingAs($providerB)->get('/provider/dashboard');
+        $dashB->assertStatus(200)
+              ->assertSee('Provider B Tasty Burger')
+              ->assertDontSee('Provider A Special Lasagna');
+
+        // Provider A marks Consumer reservation for Food A as Completed
+        $resA = \App\Models\Reservation::where('food_id', $foodA->id)->first();
+        $completeResA = $this->actingAs($providerA)->post('/reservations/' . $resA->id . '/complete');
+        $completeResA->assertRedirect();
+        $this->assertEquals('completed', $resA->fresh()->status);
+        $this->assertNotNull($resA->fresh()->completed_at);
+
+        // Verify Consumer history shows Completed
+        $consumerHist = $this->actingAs($consumer)->get('/reservations');
+        $consumerHist->assertStatus(200)->assertSee('Completed');
+
+        // Provider B reserves Food A (Provider A's listing)
+        $this->actingAs($providerB)->post('/foods/' . $foodA->id . '/reserve', ['quantity' => 1]);
+        $resB = \App\Models\Reservation::where('user_id', $providerB->id)->first();
+
+        // Provider A marks Provider B's reservation as Completed
+        $completeResB = $this->actingAs($providerA)->post('/reservations/' . $resB->id . '/complete');
+        $completeResB->assertRedirect();
+        $this->assertEquals('completed', $resB->fresh()->status);
+        $this->assertNotNull($resB->fresh()->completed_at);
+
+        // Verify Provider B history shows Completed
+        $providerBHist = $this->actingAs($providerB)->get('/reservations');
+        $providerBHist->assertStatus(200)->assertSee('Completed');
     }
 }

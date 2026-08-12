@@ -88,6 +88,7 @@ class MarketplaceController extends Controller
                 'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
                 'provider_name' => $food->user ? $food->user->name : 'Food Provider',
                 'provider_id' => $food->user_id,
+                'user_id' => $food->user_id,
                 'average_rating' => $food->average_rating,
                 'reviews_count' => $food->reviews_count,
                 'is_favorited' => in_array($food->id, $userFavoriteIds),

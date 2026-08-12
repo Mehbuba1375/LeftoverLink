@@ -17,12 +17,12 @@ class ReservationController extends Controller
     {
         $user = auth()->user();
 
-        // Only consumers can make reservations
-        if (!$user->isConsumer()) {
+        // Prevent self-reservation: A user/provider cannot reserve their own food listing
+        if ($food->user_id === $user->id) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'Only consumers can reserve food items.'], 403);
+                return response()->json(['message' => 'You cannot reserve your own food listing.'], 403);
             }
-            return back()->with('error', 'Only consumers can reserve food items.');
+            return back()->with('error', 'You cannot reserve your own food listing.');
         }
 
         $validated = $request->validate([
@@ -100,8 +100,8 @@ class ReservationController extends Controller
     {
         $user = auth()->user();
 
-        // Only the reservation owner can cancel
-        if ($reservation->user_id !== $user->id) {
+        // Only the reservation owner, food listing provider, or admin can cancel
+        if ($reservation->user_id !== $user->id && $reservation->food->user_id !== $user->id && !$user->isAdmin()) {
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Unauthorized action.'], 403);
             }
