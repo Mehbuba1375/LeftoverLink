@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
     // Food Provider Routes
     Route::middleware('role:food_provider,admin')->prefix('provider')->name('provider.')->group(function () {
         Route::get('/dashboard', [ProviderDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/reservations', [ReservationController::class, 'providerReservations'])->name('reservations');
         Route::get('/listings/create', [ProviderDashboardController::class, 'create'])->name('listings.create');
         Route::post('/listings', [ProviderDashboardController::class, 'store'])->name('listings.store');
         Route::put('/listings/{food}', [ProviderDashboardController::class, 'update'])->name('listings.update');

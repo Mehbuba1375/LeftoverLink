@@ -23,9 +23,6 @@ return new class extends Migration
             $table->timestamp('cancelled_at')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-
-            // Prevent duplicate active reservations for the same user + food
-            $table->unique(['user_id', 'food_id', 'status'], 'unique_active_reservation');
         });
     }
 

@@ -199,9 +199,64 @@
                                     </form>
                                 </div>
                             @elseif($reservation->isCompleted())
-                                <div class="pt-1">
-                                    <div class="w-full py-2.5 bg-[#2E7D32]/10 text-[#2E7D32] text-xs font-medium rounded-full text-center">
-                                        <i class="fa-solid fa-circle-check mr-1"></i> Pickup Completed
+                                @php
+                                    $existingReview = $reservation->review;
+                                @endphp
+
+                                <div x-data="{ reviewModal: false, rating: 5 }" class="pt-1 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex-1 py-2 bg-[#2E7D32]/10 text-[#2E7D32] text-xs font-medium rounded-full text-center">
+                                            <i class="fa-solid fa-circle-check mr-1"></i> Pickup Completed
+                                        </div>
+
+                                        @if(auth()->user()->isConsumer())
+                                            @if($existingReview)
+                                                <span class="px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full flex items-center gap-1 border border-amber-200/60 shrink-0">
+                                                    <i class="fa-solid fa-star text-amber-500"></i> {{ $existingReview->rating }}/5 Reviewed
+                                                </span>
+                                            @else
+                                                <button type="button" @click="reviewModal = true" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-full shadow-xs hover:shadow-md transition-all shrink-0">
+                                                    <i class="fa-solid fa-star mr-1"></i> Review Provider
+                                                </button>
+
+                                                <!-- Review Modal -->
+                                                <div x-show="reviewModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+                                                    <div @click.outside="reviewModal = false" class="bg-white max-w-sm w-full p-6 rounded-2xl shadow-2xl space-y-4 text-left">
+                                                        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                                            <h3 class="text-base font-heading font-bold text-[#222222]">Rate & Review <span class="text-[#2E7D32]">{{ $reservation->food->food_name ?? 'Provider' }}</span></h3>
+                                                            <button type="button" @click="reviewModal = false" class="text-[#666666] hover:text-[#222222]"><i class="fa-solid fa-xmark"></i></button>
+                                                        </div>
+                                                        <form action="{{ route('reviews.store', $reservation->food_id) }}" method="POST" class="space-y-4">
+                                                            @csrf
+                                                            <input type="hidden" name="reservation_id" value="{{ $reservation->id }}">
+                                                            
+                                                            <div>
+                                                                <label class="block text-xs font-semibold text-[#222222] mb-2">Select Rating (1 to 5 Stars)</label>
+                                                                <div class="flex items-center gap-2">
+                                                                    <template x-for="star in [1, 2, 3, 4, 5]" :key="star">
+                                                                        <button type="button" @click="rating = star" class="text-2xl transition-transform hover:scale-125 focus:outline-none" :class="star <= rating ? 'text-amber-500' : 'text-gray-300'">
+                                                                            ★
+                                                                        </button>
+                                                                    </template>
+                                                                    <input type="hidden" name="rating" :value="rating">
+                                                                    <span class="text-xs font-bold text-[#222222] ml-2" x-text="rating + ' / 5 Stars'"></span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <label class="block text-xs font-semibold text-[#222222] mb-1">Written Review / Feedback (Optional)</label>
+                                                                <textarea name="comment" rows="3" placeholder="Share your feedback about the food quality and provider pickup experience..." class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]"></textarea>
+                                                            </div>
+
+                                                            <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                                                <button type="button" @click="reviewModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
+                                                                <button type="submit" class="px-5 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full shadow-md">Submit Review</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        @endif
                                     </div>
                                 </div>
                             @elseif($reservation->isCancelled())
