@@ -59,6 +59,27 @@ class User extends Authenticatable
         return $this->belongsToMany(Food::class, 'favorites', 'user_id', 'food_id')->withTimestamps();
     }
 
+    public function reviewsWritten()
+    {
+        return $this->hasMany(Review::class, 'user_id');
+    }
+
+    public function reviewsReceived()
+    {
+        return $this->hasManyThrough(Review::class, Food::class, 'user_id', 'food_id', 'id', 'id');
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        $avg = $this->reviewsReceived()->avg('rating');
+        return $avg ? round($avg, 1) : 0.0;
+    }
+
+    public function getReviewsCountAttribute()
+    {
+        return $this->reviewsReceived()->count();
+    }
+
     public function isConsumer(): bool
     {
         return $this->role === 'consumer';

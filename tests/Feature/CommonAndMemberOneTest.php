@@ -245,20 +245,30 @@ class CommonAndMemberOneTest extends TestCase
         $this->assertEquals(0.0, $food->average_rating);
         $this->assertEquals(0, $food->reviews_count);
 
-        // 2. First consumer submits 5-star review
+        // 2. First consumer reserves food, provider completes pickup, consumer submits 5-star review
+        $this->actingAs($consumerA)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $resA = \App\Models\Reservation::where('user_id', $consumerA->id)->first();
+        $this->actingAs($provider)->post('/reservations/' . $resA->id . '/complete');
+
         $responseA = $this->actingAs($consumerA)->post('/foods/' . $food->id . '/reviews', [
             'rating' => 5,
             'comment' => 'Delicious and fresh!',
+            'reservation_id' => $resA->id,
         ]);
 
         $responseA->assertRedirect();
         $this->assertEquals(5.0, $food->fresh()->average_rating);
         $this->assertEquals(1, $food->fresh()->reviews_count);
 
-        // 3. Second consumer submits 3-star review (Average: (5 + 3) / 2 = 4.0)
+        // 3. Second consumer reserves food, provider completes pickup, submits 3-star review (Average: (5 + 3) / 2 = 4.0)
+        $this->actingAs($consumerB)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $resB = \App\Models\Reservation::where('user_id', $consumerB->id)->first();
+        $this->actingAs($provider)->post('/reservations/' . $resB->id . '/complete');
+
         $responseB = $this->actingAs($consumerB)->post('/foods/' . $food->id . '/reviews', [
             'rating' => 3,
             'comment' => 'Good but a bit sweet.',
+            'reservation_id' => $resB->id,
         ]);
 
         $responseB->assertRedirect();
@@ -556,5 +566,205 @@ class CommonAndMemberOneTest extends TestCase
         // Verify Provider B history shows Completed
         $providerBHist = $this->actingAs($providerB)->get('/reservations');
         $providerBHist->assertStatus(200)->assertSee('Completed');
+    }
+
+    public function test_review_and_rating_system_workflow()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+        $ngo = User::factory()->create(['role' => 'ngo']);
+
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Delicious Gourmet Pizza',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 200,
+            'expiration_time' => now()->addDays(3),
+            'pickup_window' => '11:00 AM - 2:00 PM',
+            'pickup_start_time' => '11:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+        ]);
+
+        // 1. Check New Provider Has 0.0 Rating / No Reviews
+        $this->assertEquals(0.0, $provider->average_rating);
+        $this->assertEquals(0, $provider->reviews_count);
+
+        // 2. Consumer reserves food
+        $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', ['quantity' => 2]);
+        $reservation = \App\Models\Reservation::where('user_id', $consumer->id)->first();
+        $this->assertEquals('reserved', $reservation->status);
+
+        // 3. Test 1: Consumer CANNOT review while reservation is still 'reserved'
+        $earlyReview = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 5,
+            'comment' => 'Too early!',
+            'reservation_id' => $reservation->id,
+        ]);
+        $earlyReview->assertSessionHas('error');
+        $this->assertEquals(0, \App\Models\Review::count());
+
+        // 4. Provider marks reservation as Completed
+        $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/complete');
+        $this->assertEquals('completed', $reservation->fresh()->status);
+
+        // 5. Test 2: Consumer CAN review after completion
+        $validReview = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 5,
+            'comment' => 'Amazing pizza and great pickup experience!',
+            'reservation_id' => $reservation->id,
+        ]);
+        $validReview->assertSessionHas('success');
+        $this->assertEquals(1, \App\Models\Review::count());
+
+        // 6. Test 3: Duplicate review prevention
+        $duplicateReview = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 4,
+            'comment' => 'Trying to review again...',
+            'reservation_id' => $reservation->id,
+        ]);
+        $duplicateReview->assertSessionHas('error');
+        $this->assertEquals(1, \App\Models\Review::count());
+
+        // 7. Test 4: Cancelled reservation cannot be reviewed
+        $consumer2 = User::factory()->create(['role' => 'consumer']);
+        $this->actingAs($consumer2)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $resCancelled = \App\Models\Reservation::where('user_id', $consumer2->id)->first();
+        $this->actingAs($consumer2)->post('/reservations/' . $resCancelled->id . '/cancel');
+        $this->assertEquals('cancelled', $resCancelled->fresh()->status);
+
+        $cancelledReview = $this->actingAs($consumer2)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 1,
+            'comment' => 'Cancelled reservation review test',
+            'reservation_id' => $resCancelled->id,
+        ]);
+        $cancelledReview->assertSessionHas('error');
+
+        // 8. Test 5: Provider average rating calculation
+        $consumer3 = User::factory()->create(['role' => 'consumer']);
+        $this->actingAs($consumer3)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $res3 = \App\Models\Reservation::where('user_id', $consumer3->id)->first();
+        $this->actingAs($provider)->post('/reservations/' . $res3->id . '/complete');
+
+        $this->actingAs($consumer3)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 3,
+            'comment' => 'Average feedback',
+            'reservation_id' => $res3->id,
+        ]);
+
+        // Average of 5 and 3 = 4.0
+        $this->assertEquals(4.0, $provider->fresh()->average_rating);
+        $this->assertEquals(2, $provider->fresh()->reviews_count);
+
+        // 9. Test 6: Provider dashboard displays customer feedback
+        $dashRes = $this->actingAs($provider)->get('/provider/dashboard');
+        $dashRes->assertStatus(200)
+                ->assertSee('Customer Reviews')
+                ->assertSee('Amazing pizza and great pickup experience!')
+                ->assertSee('Average feedback');
+    }
+
+    public function test_multiple_historical_completed_reservations_for_same_user_and_food()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Repeat Order Pasta',
+            'category' => 'Prepared Meals',
+            'quantity' => 20,
+            'price' => 100,
+            'expiration_time' => now()->addDays(5),
+            'pickup_window' => '12:00 PM - 2:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // First Reservation by Consumer
+        $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $res1 = \App\Models\Reservation::where('user_id', $consumer->id)->latest()->first();
+
+        // Provider completes first reservation
+        $complete1 = $this->actingAs($provider)->post('/reservations/' . $res1->id . '/complete');
+        $complete1->assertRedirect();
+        $this->assertEquals('completed', $res1->fresh()->status);
+        $this->assertNotNull($res1->fresh()->completed_at);
+
+        // Second Reservation by SAME Consumer for SAME Food
+        $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $res2 = \App\Models\Reservation::where('user_id', $consumer->id)->latest('id')->first();
+        $this->assertNotEquals($res1->id, $res2->id);
+
+        // Provider completes second reservation without UniqueConstraintViolationException
+        $complete2 = $this->actingAs($provider)->post('/reservations/' . $res2->id . '/complete');
+        $complete2->assertRedirect();
+        $this->assertEquals('completed', $res2->fresh()->status);
+        $this->assertNotNull($res2->fresh()->completed_at);
+
+        // Both historical reservations exist as Completed
+        $completedCount = \App\Models\Reservation::where('user_id', $consumer->id)
+            ->where('food_id', $food->id)
+            ->where('status', 'completed')
+            ->count();
+        $this->assertEquals(2, $completedCount);
+    }
+
+    public function test_independent_reviews_for_multiple_completed_reservations_by_same_user()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Artisanal Bread',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 20,
+            'price' => 80,
+            'expiration_time' => now()->addDays(3),
+            'pickup_window' => '4:00 PM - 6:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // Purchase #1: Consumer reserves and Provider completes
+        $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $res1 = \App\Models\Reservation::where('user_id', $consumer->id)->latest('id')->first();
+        $this->actingAs($provider)->post('/reservations/' . $res1->id . '/complete');
+
+        // Review #1 submitted for Purchase #1 (5 stars)
+        $rev1Res = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 5,
+            'comment' => 'Great food!',
+            'reservation_id' => $res1->id,
+        ]);
+        $rev1Res->assertSessionHas('success');
+
+        // Purchase #2: SAME Consumer reserves SAME Food AGAIN and Provider completes
+        $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', ['quantity' => 1]);
+        $res2 = \App\Models\Reservation::where('user_id', $consumer->id)->latest('id')->first();
+        $this->actingAs($provider)->post('/reservations/' . $res2->id . '/complete');
+
+        // Purchase #2 has NO review attached initially
+        $this->assertNull($res2->fresh()->review);
+        $this->assertFalse($res2->fresh()->isReviewed());
+
+        // Review #2 submitted for Purchase #2 (3 stars)
+        $rev2Res = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reviews', [
+            'rating' => 3,
+            'comment' => 'Good, but not as fresh this time.',
+            'reservation_id' => $res2->id,
+        ]);
+        $rev2Res->assertSessionHas('success');
+
+        // Both review records exist independently in database
+        $this->assertEquals(5, $res1->fresh()->review->rating);
+        $this->assertEquals('Great food!', $res1->fresh()->review->comment);
+
+        $this->assertEquals(3, $res2->fresh()->review->rating);
+        $this->assertEquals('Good, but not as fresh this time.', $res2->fresh()->review->comment);
+
+        // Provider average rating reflects both reviews: (5 + 3) / 2 = 4.0
+        $this->assertEquals(4.0, $provider->fresh()->average_rating);
+        $this->assertEquals(2, $provider->fresh()->reviews_count);
     }
 }

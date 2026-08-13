@@ -52,6 +52,19 @@ class Reservation extends Model
         return $this->belongsTo(Food::class);
     }
 
+    /**
+     * Review associated with this reservation.
+     */
+    public function review()
+    {
+        return $this->hasOne(Review::class, 'reservation_id');
+    }
+
+    public function isReviewed(): bool
+    {
+        return $this->review()->exists();
+    }
+
     // ─── Scopes ──────────────────────────────────────────────
 
     /**

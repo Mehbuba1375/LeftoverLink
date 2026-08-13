@@ -28,6 +28,11 @@ class ProviderDashboardController extends Controller
             ->latest('reserved_at')
             ->get();
 
+        $reviews = $user->reviewsReceived()
+            ->with(['user', 'food'])
+            ->latest()
+            ->get();
+
         $stats = [
             'total' => $listings->count(),
             'active' => $listings->filter(fn($f) => $f->quantity > 0 && $f->expiration_time > now())->count(),
@@ -37,9 +42,11 @@ class ProviderDashboardController extends Controller
             'ngo_requests_pending' => $ngoRequests->where('status', \App\Models\FoodRequest::STATUS_PENDING)->count(),
             'reservations_total' => $incomingReservations->count(),
             'reservations_active' => $incomingReservations->where('status', \App\Models\Reservation::STATUS_RESERVED)->count(),
+            'average_rating' => $user->average_rating,
+            'reviews_count' => $user->reviews_count,
         ];
 
-        return view('provider.dashboard', compact('listings', 'stats', 'ngoRequests', 'incomingReservations'));
+        return view('provider.dashboard', compact('listings', 'stats', 'ngoRequests', 'incomingReservations', 'reviews'));
     }
 
     /**

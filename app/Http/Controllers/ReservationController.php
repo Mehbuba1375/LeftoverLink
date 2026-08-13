@@ -144,7 +144,7 @@ class ReservationController extends Controller
         $user = auth()->user();
 
         // Only the food provider who owns the listing (or admin) can complete a reservation
-        if ($reservation->food->user_id !== $user->id && !$user->isAdmin()) {
+        if (!$reservation->food || ((int)$reservation->food->user_id !== (int)$user->id && !$user->isAdmin())) {
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Unauthorized action.'], 403);
             }
@@ -218,5 +218,13 @@ class ReservationController extends Controller
         ];
 
         return view('reservations.provider', compact('reservations', 'stats'));
+    }
+
+    /**
+     * Provider cancels an incoming reservation on their food listing.
+     */
+    public function providerCancel(Request $request, Reservation $reservation)
+    {
+        return $this->cancel($request, $reservation);
     }
 }

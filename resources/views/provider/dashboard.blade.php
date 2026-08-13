@@ -362,6 +362,67 @@
         @endif
     </div>
 
+    <!-- Customer Reviews & Feedback Section -->
+    <div class="space-y-4 pt-6 border-t border-gray-200/60">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-heading font-bold text-[#222222]">Customer Reviews & Feedback</h2>
+                <p class="text-xs text-[#666666]">Ratings and feedback submitted by consumers after completing food pickups</p>
+            </div>
+            <div class="flex items-center gap-2">
+                @if(($stats['reviews_count'] ?? 0) > 0)
+                    <span class="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200/60 flex items-center gap-1">
+                        <i class="fa-solid fa-star text-amber-500"></i> {{ number_format($stats['average_rating'] ?? 0, 1) }} / 5.0
+                    </span>
+                    <span class="text-xs text-[#666666]">Based on {{ $stats['reviews_count'] }} {{ $stats['reviews_count'] === 1 ? 'review' : 'reviews' }}</span>
+                @else
+                    <span class="text-xs text-[#666666] font-medium italic">No reviews yet</span>
+                @endif
+            </div>
+        </div>
+
+        @if(isset($reviews) && $reviews->count() > 0)
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach($reviews as $rev)
+                    <div class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-[#2E7D32]/10 text-[#2E7D32] flex items-center justify-center font-bold text-xs">
+                                    {{ strtoupper(substr($rev->user->name ?? 'C', 0, 1)) }}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-xs text-[#222222]">{{ $rev->user->name ?? 'Consumer' }}</h4>
+                                    <p class="text-[10px] text-[#666666]">Item: {{ $rev->food->food_name ?? 'Food Item' }}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-amber-500 font-bold text-xs">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <i class="fa-{{ $i <= $rev->rating ? 'solid' : 'regular' }} fa-star"></i>
+                                    @endfor
+                                </div>
+                                <p class="text-[10px] text-[#666666] mt-0.5">{{ $rev->created_at->format('M d, Y') }}</p>
+                            </div>
+                        </div>
+                        @if($rev->comment)
+                            <p class="text-xs text-[#666666] italic">"{{ $rev->comment }}"</p>
+                        @else
+                            <p class="text-[11px] text-gray-400 italic">No written comment provided.</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div class="bg-white rounded-xl border border-gray-100 p-8 text-center space-y-2 shadow-xs">
+                <div class="w-12 h-12 rounded-full bg-[#FFF9E8] text-[#2E7D32] flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-star"></i>
+                </div>
+                <h4 class="font-bold text-sm text-[#222222]">No Customer Reviews Yet</h4>
+                <p class="text-xs text-[#666666]">Once consumers complete food pickups from your listings, their feedback will appear here.</p>
+            </div>
+        @endif
+    </div>
+
     <!-- Edit Listing Modal -->
     <div x-show="editModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
         <div @click.outside="editModal = false" class="bg-white max-w-xl w-full p-6 sm:p-8 rounded-xl shadow-2xl space-y-6">
