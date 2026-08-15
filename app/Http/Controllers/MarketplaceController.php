@@ -32,7 +32,27 @@ class MarketplaceController extends Controller
         $providers = User::where('role', 'food_provider')->select('id', 'name')->get();
         $isDonationPage = false;
 
-        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage'));
+        $currentUser = auth()->check() && auth()->user()->latitude && auth()->user()->longitude ? [
+            'id' => auth()->id(),
+            'name' => auth()->user()->name,
+            'latitude' => (float)auth()->user()->latitude,
+            'longitude' => (float)auth()->user()->longitude,
+        ] : null;
+
+        $providerLocations = User::where('role', 'food_provider')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->get(['id', 'name', 'latitude', 'longitude'])
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'latitude' => (float)$p->latitude,
+                    'longitude' => (float)$p->longitude,
+                ];
+            })->values()->toArray();
+
+        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage', 'currentUser', 'providerLocations'));
     }
 
     /**
@@ -61,7 +81,27 @@ class MarketplaceController extends Controller
         $providers = User::where('role', 'food_provider')->select('id', 'name')->get();
         $isDonationPage = true;
 
-        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage'));
+        $currentUser = auth()->check() && auth()->user()->latitude && auth()->user()->longitude ? [
+            'id' => auth()->id(),
+            'name' => auth()->user()->name,
+            'latitude' => (float)auth()->user()->latitude,
+            'longitude' => (float)auth()->user()->longitude,
+        ] : null;
+
+        $providerLocations = User::where('role', 'food_provider')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->get(['id', 'name', 'latitude', 'longitude'])
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'latitude' => (float)$p->latitude,
+                    'longitude' => (float)$p->longitude,
+                ];
+            })->values()->toArray();
+
+        return view('marketplace.index', compact('foods', 'categories', 'providers', 'isDonationPage', 'currentUser', 'providerLocations'));
     }
 
     /**
@@ -99,9 +139,31 @@ class MarketplaceController extends Controller
             ];
         });
 
+        $currentUser = auth()->check() ? [
+            'id' => auth()->id(),
+            'name' => auth()->user()->name,
+            'latitude' => auth()->user()->latitude ? (float)auth()->user()->latitude : null,
+            'longitude' => auth()->user()->longitude ? (float)auth()->user()->longitude : null,
+        ] : null;
+
+        $providerLocations = User::where('role', 'food_provider')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->get(['id', 'name', 'latitude', 'longitude'])
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'latitude' => (float)$p->latitude,
+                    'longitude' => (float)$p->longitude,
+                ];
+            });
+
         return response()->json([
             'count' => $foods->count(),
-            'data' => $foods
+            'data' => $foods,
+            'current_user' => $currentUser,
+            'providers' => $providerLocations,
         ]);
     }
 

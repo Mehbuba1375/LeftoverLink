@@ -839,4 +839,107 @@ class CommonAndMemberOneTest extends TestCase
         $completeRes->assertRedirect();
         $this->assertEquals('completed', $reservation->fresh()->status);
     }
+
+    public function test_leaflet_map_location_data_integration()
+    {
+        $provider = User::factory()->create(['name' => 'Green Bakery', 'role' => 'food_provider']);
+
+        // Create food listing with specific Leaflet map coordinates
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Organic Sourdough Bread',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 5,
+            'price' => 150,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'pickup_start_time' => '10:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+            'latitude' => 23.8103,
+            'longitude' => 90.4125,
+        ]);
+
+        // Query search API endpoint used by Leaflet map overlay
+        $response = $this->getJson('/marketplace/api/search');
+        $response->assertStatus(200);
+
+        $json = $response->json();
+        $this->assertGreaterThanOrEqual(1, $json['count']);
+
+        $item = collect($json['data'])->firstWhere('id', $food->id);
+        $this->assertNotNull($item);
+        $this->assertEquals('Organic Sourdough Bread', $item['food_name']);
+        $this->assertEquals('Green Bakery', $item['provider_name']);
+        $this->assertEquals(23.8103, (float)$item['latitude']);
+        $this->assertEquals(90.4125, (float)$item['longitude']);
+    }
+
+    public function test_user_registration_and_profile_location_selection_and_map_markers()
+    {
+        // 1. User registration with Leaflet map location selection
+        $regData = [
+            'name' => 'Loc User',
+            'email' => 'locuser@example.com',
+            'phone' => '+880 1700-111222',
+            'role' => 'consumer',
+            'latitude' => 23.7901,
+            'longitude' => 90.4022,
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+        ];
+
+        $regResponse = $this->post('/register', $regData);
+        $regResponse->assertRedirect('/marketplace');
+
+        $user = User::where('email', 'locuser@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertEquals(23.7901, (float)$user->latitude);
+        $this->assertEquals(90.4022, (float)$user->longitude);
+
+        // 2. Profile update with new location
+        $updateResponse = $this->actingAs($user)->post('/profile/info', [
+            'name' => 'Loc User Updated',
+            'email' => 'locuser@example.com',
+            'phone' => '+880 1700-111222',
+            'latitude' => 23.8200,
+            'longitude' => 90.4200,
+        ]);
+        $updateResponse->assertSessionHas('success');
+
+        $user->refresh();
+        $this->assertEquals(23.8200, (float)$user->latitude);
+        $this->assertEquals(90.4200, (float)$user->longitude);
+
+        // 3. Register a Food Provider with valid coordinates
+        $provider = User::create([
+            'name' => 'Blue Provider Bakery',
+            'email' => 'blueprovider@example.com',
+            'phone' => '+880 1800-999888',
+            'role' => 'food_provider',
+            'latitude' => 23.7500,
+            'longitude' => 90.3800,
+            'password' => bcrypt('secret123'),
+        ]);
+
+        // 4. Query marketplace search API as authenticated user
+        $apiResponse = $this->actingAs($user)->getJson('/marketplace/api/search');
+        $apiResponse->assertStatus(200);
+
+        $json = $apiResponse->json();
+        
+        // Assert Red current user marker location payload
+        $this->assertNotNull($json['current_user']);
+        $this->assertEquals($user->id, $json['current_user']['id']);
+        $this->assertEquals(23.8200, (float)$json['current_user']['latitude']);
+        $this->assertEquals(90.4200, (float)$json['current_user']['longitude']);
+
+        // Assert Blue food provider markers payload
+        $providersPayload = collect($json['providers']);
+        $providerItem = $providersPayload->firstWhere('id', $provider->id);
+        $this->assertNotNull($providerItem);
+        $this->assertEquals('Blue Provider Bakery', $providerItem['name']);
+        $this->assertEquals(23.7500, (float)$providerItem['latitude']);
+        $this->assertEquals(90.3800, (float)$providerItem['longitude']);
+    }
 }
