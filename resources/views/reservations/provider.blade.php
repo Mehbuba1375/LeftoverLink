@@ -125,6 +125,18 @@
                                         <div>
                                             <p class="font-semibold text-[#222222]">{{ $reservation->user ? $reservation->user->name : 'Unknown' }}</p>
                                             <p class="text-[10px] text-[#666666]">{{ $reservation->user ? $reservation->user->phone : '' }}</p>
+                                            @if($reservation->preferred_pickup_date)
+                                                <div class="mt-1 text-[10px]">
+                                                    <span class="text-[#666666]">Sched: <strong class="text-[#222222]">{{ $reservation->formatted_preferred_schedule }}</strong></span>
+                                                    @if($reservation->isScheduleApproved())
+                                                        <span class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700">Approved</span>
+                                                    @elseif($reservation->isScheduleAdjusted())
+                                                        <span class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">Adjusted: {{ $reservation->formatted_approved_schedule }}</span>
+                                                    @else
+                                                        <span class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700">Pending</span>
+                                                    @endif
+                                                </div>
+                                            @endif
                                         </div>
                                     </td>
 
@@ -164,13 +176,59 @@
                                     {{-- Action --}}
                                     <td class="px-5 py-4 text-right">
                                         @if($reservation->isReserved())
-                                            <form action="{{ route('reservations.complete', $reservation->id) }}" method="POST" class="inline" onsubmit="return confirm('Confirm that this consumer has picked up the food?')">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="px-4 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-[11px] font-medium rounded-full shadow-xs hover:shadow-md hover:scale-105 transition-all">
-                                                    <i class="fa-solid fa-check mr-1"></i> Confirm Pickup
-                                                </button>
-                                            </form>
+                                            <div class="flex items-center justify-end gap-1.5">
+                                                @if($reservation->preferred_pickup_date && $reservation->isSchedulePending())
+                                                    <form action="{{ route('reservations.approve-schedule', $reservation->id) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="px-2.5 py-1.5 bg-green-50 hover:bg-green-600 text-green-700 hover:text-white text-[10px] font-semibold rounded-full transition-all" title="Approve Requested Schedule">
+                                                            <i class="fa-solid fa-calendar-check mr-1"></i> Approve Sched
+                                                        </button>
+                                                    </form>
+                                                @endif
+
+                                                @if($reservation->preferred_pickup_date)
+                                                    <div x-data="{ adjustModal: false }" class="inline text-left">
+                                                        <button type="button" @click="adjustModal = true" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white text-[10px] font-semibold rounded-full transition-all" title="Adjust Pickup Schedule">
+                                                            <i class="fa-solid fa-calendar-pen mr-1"></i> Adjust
+                                                        </button>
+
+                                                        <div x-show="adjustModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+                                                            <div @click.outside="adjustModal = false" class="bg-white max-w-sm w-full p-6 rounded-2xl shadow-2xl space-y-4">
+                                                                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                                                    <h3 class="text-base font-heading font-bold text-[#222222]">Adjust Pickup Schedule</h3>
+                                                                    <button type="button" @click="adjustModal = false" class="text-[#666666] hover:text-[#222222]"><i class="fa-solid fa-xmark"></i></button>
+                                                                </div>
+                                                                <form action="{{ route('reservations.adjust-schedule', $reservation->id) }}" method="POST" class="space-y-4">
+                                                                    @csrf
+                                                                    <div>
+                                                                        <label class="block text-xs font-semibold text-[#222222] mb-1">New Pickup Date</label>
+                                                                        <input type="date" name="adjusted_pickup_date" min="{{ date('Y-m-d') }}" value="{{ $reservation->approved_pickup_date ? $reservation->approved_pickup_date->format('Y-m-d') : ($reservation->preferred_pickup_date ? $reservation->preferred_pickup_date->format('Y-m-d') : date('Y-m-d')) }}" required class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]">
+                                                                    </div>
+                                                                    <div>
+                                                                        <div class="flex justify-between items-center mb-1">
+                                                                            <label class="block text-xs font-semibold text-[#222222]">New Pickup Time</label>
+                                                                            <span class="text-[10px] text-[#2E7D32] font-medium">Window: {{ $reservation->food->pickup_window ?? 'Flexible' }}</span>
+                                                                        </div>
+                                                                        <input type="time" name="adjusted_pickup_time" value="{{ $reservation->approved_pickup_time ? \Carbon\Carbon::parse($reservation->approved_pickup_time)->format('H:i') : ($reservation->preferred_pickup_time ? \Carbon\Carbon::parse($reservation->preferred_pickup_time)->format('H:i') : '') }}" required class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]">
+                                                                    </div>
+                                                                    <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                                                                        <button type="button" @click="adjustModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
+                                                                        <button type="submit" class="px-5 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full shadow-md">Save Schedule</button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+
+                                                <form action="{{ route('reservations.complete', $reservation->id) }}" method="POST" class="inline" onsubmit="return confirm('Confirm that this consumer has picked up the food?')">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="px-4 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-[11px] font-medium rounded-full shadow-xs hover:shadow-md hover:scale-105 transition-all">
+                                                        <i class="fa-solid fa-check mr-1"></i> Confirm Pickup
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @elseif($reservation->isCompleted())
                                             <span class="text-[11px] text-[#2E7D32] font-medium">
                                                 <i class="fa-solid fa-check-double mr-1"></i>

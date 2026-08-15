@@ -21,6 +21,11 @@ class Reservation extends Model
         'food_id',
         'quantity',
         'status',
+        'preferred_pickup_date',
+        'preferred_pickup_time',
+        'approved_pickup_date',
+        'approved_pickup_time',
+        'pickup_schedule_status',
         'reserved_at',
         'completed_at',
         'cancelled_at',
@@ -31,6 +36,8 @@ class Reservation extends Model
         'reserved_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'preferred_pickup_date' => 'date',
+        'approved_pickup_date' => 'date',
         'quantity' => 'integer',
     ];
 
@@ -114,5 +121,42 @@ class Reservation extends Model
     public function canBeCompleted(): bool
     {
         return $this->isReserved();
+    }
+
+    // ─── Pickup Schedule Helpers ─────────────────────────────
+
+    public function isSchedulePending(): bool
+    {
+        return $this->pickup_schedule_status === 'pending' || empty($this->pickup_schedule_status);
+    }
+
+    public function isScheduleApproved(): bool
+    {
+        return $this->pickup_schedule_status === 'approved';
+    }
+
+    public function isScheduleAdjusted(): bool
+    {
+        return $this->pickup_schedule_status === 'adjusted';
+    }
+
+    public function getFormattedPreferredScheduleAttribute(): ?string
+    {
+        if (!$this->preferred_pickup_date) {
+            return null;
+        }
+        $dateStr = $this->preferred_pickup_date->format('M d, Y');
+        $timeStr = $this->preferred_pickup_time ? \Carbon\Carbon::parse($this->preferred_pickup_time)->format('g:i A') : '';
+        return trim("{$dateStr} {$timeStr}");
+    }
+
+    public function getFormattedApprovedScheduleAttribute(): ?string
+    {
+        if (!$this->approved_pickup_date) {
+            return null;
+        }
+        $dateStr = $this->approved_pickup_date->format('M d, Y');
+        $timeStr = $this->approved_pickup_time ? \Carbon\Carbon::parse($this->approved_pickup_time)->format('g:i A') : '';
+        return trim("{$dateStr} {$timeStr}");
     }
 }
