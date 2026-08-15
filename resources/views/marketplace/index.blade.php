@@ -78,6 +78,122 @@
         </div>
     </div>
 
+    <!-- Leaflet Data & Component Script -->
+    <script>
+        window.marketplaceCurrentUser = @json($currentUser ?? null);
+        window.marketplaceProviders = @json($providerLocations ?? []);
+
+        function marketplaceMapComponent() {
+            return {
+                mapOpen: false,
+                map: null,
+                markers: [],
+                initMap() {
+                    if (this.map) {
+                        setTimeout(() => this.map.invalidateSize(), 200);
+                        return;
+                    }
+                    this.$nextTick(() => {
+                        const container = document.getElementById('leaflet-marketplace-map');
+                        if (!container) return;
+
+                        this.map = L.map('leaflet-marketplace-map').setView([23.8103, 90.4125], 12);
+                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        }).addTo(this.map);
+
+                        this.renderMapData(null);
+                    });
+                },
+                renderMapData(payload) {
+                    if (!this.map) return;
+                    this.markers.forEach(m => this.map.removeLayer(m));
+                    this.markers = [];
+
+                    const bounds = [];
+
+                    const redIcon = L.divIcon({
+                        className: 'leaflet-red-user-icon',
+                        html: '<div style="background-color:#EF4444;width:26px;height:26px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;" title="Your Location"><i class="fa-solid fa-user"></i></div>',
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    });
+
+                    const blueIcon = L.divIcon({
+                        className: 'leaflet-blue-provider-icon',
+                        html: '<div style="background-color:#2563EB;width:26px;height:26px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;" title="Food Provider"><i class="fa-solid fa-store"></i></div>',
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    });
+
+                    // 1. Current Authenticated User (Red Marker 🔴)
+                    const currentUser = (payload && payload.current_user) ? payload.current_user : window.marketplaceCurrentUser;
+
+                    let userLat = null, userLng = null;
+                    if (currentUser && currentUser.latitude && currentUser.longitude) {
+                        userLat = parseFloat(currentUser.latitude);
+                        userLng = parseFloat(currentUser.longitude);
+
+                        const userMarker = L.marker([userLat, userLng], { icon: redIcon }).addTo(this.map);
+                        const nameEscaped = (currentUser.name || 'Current User').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        userMarker.bindPopup('<div style="font-family:Poppins,sans-serif;padding:2px;text-align:left;"><div style="font-weight:700;font-size:12px;color:#EF4444;"><i class="fa-solid fa-user-pin mr-1"></i> Your Location</div><div style="font-size:11px;color:#222222;margin-top:2px;">' + nameEscaped + '</div></div>');
+                        this.markers.push(userMarker);
+                        bounds.push([userLat, userLng]);
+                    }
+
+                    // 2. All Registered Food Providers (Blue Markers 🔵)
+                    const providers = (payload && payload.providers && payload.providers.length) ? payload.providers : (window.marketplaceProviders || []);
+
+                    providers.forEach((provider) => {
+                        const pLat = parseFloat(provider.latitude);
+                        const pLng = parseFloat(provider.longitude);
+
+                        if (userLat && userLng && Math.abs(pLat - userLat) < 0.00001 && Math.abs(pLng - userLng) < 0.00001) {
+                            return;
+                        }
+
+                        const providerMarker = L.marker([pLat, pLng], { icon: blueIcon }).addTo(this.map);
+                        const pNameEscaped = (provider.name || 'Food Provider').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        providerMarker.bindPopup('<div style="font-family:Poppins,sans-serif;padding:2px;text-align:left;"><div style="font-weight:700;font-size:12px;color:#2563EB;">Food Provider: ' + pNameEscaped + '</div></div>');
+                        this.markers.push(providerMarker);
+                        bounds.push([pLat, pLng]);
+                    });
+
+                    if (bounds.length > 0) {
+                        this.map.fitBounds(bounds, { padding: [40, 40] });
+                    }
+                }
+            };
+        }
+    </script>
+
+    <!-- Leaflet Interactive Pickup Map Component -->
+    <div x-data="marketplaceMapComponent()" @marketplace-foods-updated.window="renderMapData($event.detail)" class="mb-6">
+        <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-[#2E7D32]/10 text-[#2E7D32] flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-[#222222]">Interactive Food Provider Locations Map</h3>
+                    <div class="flex items-center gap-3 text-[11px] text-[#666666] mt-0.5">
+                        <span class="flex items-center gap-1 font-medium text-red-500"><i class="fa-solid fa-circle text-[8px]"></i> 🔴 Your Location</span>
+                        <span class="flex items-center gap-1 font-medium text-blue-600"><i class="fa-solid fa-circle text-[8px]"></i> 🔵 Food Providers</span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" @click="mapOpen = !mapOpen; if(mapOpen) initMap();" class="px-4 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full shadow-xs transition-all flex items-center gap-1.5">
+                <i class="fa-solid" :class="mapOpen ? 'fa-eye-slash' : 'fa-map'"></i>
+                <span x-text="mapOpen ? 'Hide Pickup Map' : 'View Interactive Map'"></span>
+            </button>
+        </div>
+
+        <div x-show="mapOpen" x-cloak class="bg-white p-3 rounded-2xl shadow-xs border border-gray-100">
+            <div id="leaflet-marketplace-map" class="w-full h-80 rounded-xl overflow-hidden z-0" style="min-height: 320px;"></div>
+        </div>
+    </div>
+
     <!-- Loading Indicator -->
     <div x-show="$store.marketplace.loading" class="text-center py-12 space-y-3">
         <i class="fa-solid fa-circle-notch fa-spin text-2xl text-[#2E7D32]"></i>

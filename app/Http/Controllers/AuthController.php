@@ -32,6 +32,8 @@ class AuthController extends Controller
             'phone' => 'required|string|max:20',
             'address' => 'nullable|string|max:255',
             'role' => 'required|string|in:consumer,food_provider,ngo',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'password' => ['required', 'confirmed', Password::min(6)],
         ]);
 
@@ -40,6 +42,8 @@ class AuthController extends Controller
             'email' => strtolower($validated['email']),
             'phone' => $validated['phone'],
             'address' => $validated['address'] ?? null,
+            'latitude' => isset($validated['latitude']) ? (float)$validated['latitude'] : null,
+            'longitude' => isset($validated['longitude']) ? (float)$validated['longitude'] : null,
             'role' => $validated['role'],
             'password' => Hash::make($validated['password']),
         ]);
