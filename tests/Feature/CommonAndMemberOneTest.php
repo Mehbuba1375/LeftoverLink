@@ -767,4 +767,76 @@ class CommonAndMemberOneTest extends TestCase
         $this->assertEquals(4.0, $provider->fresh()->average_rating);
         $this->assertEquals(2, $provider->fresh()->reviews_count);
     }
+
+    public function test_pickup_scheduling_system_workflow()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        // Food listing with pickup window 10:00 AM - 2:00 PM (10:00 - 14:00)
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Scheduled Gourmet Lunch',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 120,
+            'expiration_time' => now()->addDays(5),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'pickup_start_time' => '10:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+        ]);
+
+        $futureDate = now()->addDays(2)->format('Y-m-d');
+
+        // Test 1: Invalid pickup time outside window (09:00 AM is before 10:00 AM)
+        $invalidRes = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', [
+            'quantity' => 1,
+            'preferred_pickup_date' => $futureDate,
+            'preferred_pickup_time' => '09:00',
+        ]);
+        $invalidRes->assertSessionHas('error');
+
+        // Test 2: Valid reservation with preferred date & time (11:30 AM is inside window)
+        $validRes = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', [
+            'quantity' => 2,
+            'preferred_pickup_date' => $futureDate,
+            'preferred_pickup_time' => '11:30',
+        ]);
+        $validRes->assertRedirect('/reservations');
+
+        $reservation = \App\Models\Reservation::where('user_id', $consumer->id)->first();
+        $this->assertNotNull($reservation);
+        $this->assertEquals($futureDate, $reservation->preferred_pickup_date->format('Y-m-d'));
+        $this->assertEquals('11:30', \Carbon\Carbon::parse($reservation->preferred_pickup_time)->format('H:i'));
+        $this->assertEquals('pending', $reservation->pickup_schedule_status);
+        $this->assertEquals('reserved', $reservation->status);
+
+        // Test 3: Provider approves requested schedule
+        $approveRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/approve-schedule');
+        $approveRes->assertRedirect();
+
+        $reservation->refresh();
+        $this->assertEquals('approved', $reservation->pickup_schedule_status);
+        $this->assertEquals('reserved', $reservation->status); // Remains reserved
+
+        // Test 4: Provider adjusts schedule to another valid date & time (13:00 / 1:00 PM)
+        $adjustedDate = now()->addDays(3)->format('Y-m-d');
+        $adjustRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/adjust-schedule', [
+            'adjusted_pickup_date' => $adjustedDate,
+            'adjusted_pickup_time' => '13:00',
+        ]);
+        $adjustRes->assertRedirect();
+
+        $reservation->refresh();
+        $this->assertEquals('adjusted', $reservation->pickup_schedule_status);
+        $this->assertEquals($adjustedDate, $reservation->approved_pickup_date->format('Y-m-d'));
+        $this->assertEquals('13:00', \Carbon\Carbon::parse($reservation->approved_pickup_time)->format('H:i'));
+        $this->assertEquals('reserved', $reservation->status); // Remains reserved
+
+        // Test 5: Mark completed still functions correctly
+        $completeRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/complete');
+        $completeRes->assertRedirect();
+        $this->assertEquals('completed', $reservation->fresh()->status);
+    }
 }

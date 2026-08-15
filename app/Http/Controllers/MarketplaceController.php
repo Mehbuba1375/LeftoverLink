@@ -84,6 +84,8 @@ class MarketplaceController extends Controller
                 'price' => number_format($food->price, 2),
                 'expiration_time' => $food->expiration_time ? $food->expiration_time->format('M d, Y h:i A') : null,
                 'pickup_window' => $food->pickup_window,
+                'pickup_start_time' => $food->pickup_start_time ? \Carbon\Carbon::parse($food->pickup_start_time)->format('H:i') : null,
+                'pickup_end_time' => $food->pickup_end_time ? \Carbon\Carbon::parse($food->pickup_end_time)->format('H:i') : null,
                 'donation_status' => (bool)$food->donation_status,
                 'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
                 'provider_name' => $food->user ? $food->user->name : 'Food Provider',

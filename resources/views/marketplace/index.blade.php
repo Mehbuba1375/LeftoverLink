@@ -209,6 +209,20 @@
                                                             <button type="button" @click="if(reserveQty < item.quantity) reserveQty++" class="w-9 h-9 rounded-lg bg-[#F5F5F5] hover:bg-gray-200 text-[#222222] font-bold">+</button>
                                                         </div>
                                                     </div>
+
+                                                    <div>
+                                                        <label class="block text-xs font-semibold text-[#222222] mb-1">Preferred Pickup Date</label>
+                                                        <input type="date" name="preferred_pickup_date" min="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}" required class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]">
+                                                    </div>
+
+                                                    <div>
+                                                        <div class="flex justify-between items-center mb-1">
+                                                            <label class="block text-xs font-semibold text-[#222222]">Preferred Pickup Time</label>
+                                                            <span class="text-[10px] text-[#2E7D32] font-medium" x-text="'Window: ' + (item.pickup_window || 'Flexible')"></span>
+                                                        </div>
+                                                        <input type="time" name="preferred_pickup_time" :min="item.pickup_start_time || '00:00'" :max="item.pickup_end_time || '23:59'" required class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]">
+                                                    </div>
+
                                                     <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
                                                         <button type="button" @click="reserveModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
                                                         <button type="submit" class="px-5 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full shadow-md">Confirm Reservation</button>

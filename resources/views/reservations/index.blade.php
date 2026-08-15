@@ -156,11 +156,34 @@
                                     <span>Reserved: <strong class="text-[#222222] font-medium">{{ $reservation->reserved_at->format('M d, Y h:i A') }}</strong></span>
                                 </div>
 
-                                {{-- Pickup Window --}}
+                                {{-- Pickup Window & Schedule --}}
                                 @if($reservation->food)
                                     <div class="flex items-center gap-1.5 text-[11px]">
                                         <i class="fa-solid fa-clock text-[#666666]"></i>
-                                        <span>Pickup: <strong class="text-[#222222] font-medium">{{ $reservation->food->pickup_window }}</strong></span>
+                                        <span>Pickup Window: <strong class="text-[#222222] font-medium">{{ $reservation->food->pickup_window }}</strong></span>
+                                    </div>
+                                @endif
+
+                                @if($reservation->preferred_pickup_date)
+                                    <div class="p-2 bg-[#F5F5F5] rounded-lg space-y-1 text-[11px]">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[#222222]">Pickup Schedule:</span>
+                                            @if($reservation->isScheduleApproved())
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">Approved</span>
+                                            @elseif($reservation->isScheduleAdjusted())
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">Adjusted</span>
+                                            @else
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">Pending</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            Requested: <strong class="text-[#222222]">{{ $reservation->formatted_preferred_schedule }}</strong>
+                                        </div>
+                                        @if($reservation->approved_pickup_date && ($reservation->isScheduleApproved() || $reservation->isScheduleAdjusted()))
+                                            <div>
+                                                Confirmed: <strong class="text-[#2E7D32]">{{ $reservation->formatted_approved_schedule }}</strong>
+                                            </div>
+                                        @endif
                                     </div>
                                 @endif
 
