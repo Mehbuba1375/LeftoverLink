@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Favorite;
 use App\Models\Food;
 use App\Models\FoodRequest;
 use App\Models\User;
@@ -941,5 +942,125 @@ class CommonAndMemberOneTest extends TestCase
         $this->assertEquals('Blue Provider Bakery', $providerItem['name']);
         $this->assertEquals(23.7500, (float)$providerItem['latitude']);
         $this->assertEquals(90.3800, (float)$providerItem['longitude']);
+    }
+
+    public function test_consumer_can_search_and_filter_favorites_only_among_their_own_saved_items()
+    {
+        // 1. Create two food providers
+        $provider1 = User::create([
+            'name' => 'Sunset Bakery House',
+            'email' => 'pizzahouse@example.com',
+            'phone' => '+880 1711-000111',
+            'role' => 'food_provider',
+            'password' => bcrypt('password'),
+        ]);
+
+        $provider2 = User::create([
+            'name' => 'Italian Pasta Corner',
+            'email' => 'pastacorner@example.com',
+            'phone' => '+880 1711-000222',
+            'role' => 'food_provider',
+            'password' => bcrypt('password'),
+        ]);
+
+        // 2. Create food items
+        $pizza = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Pepperoni Pizza',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 120.00,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '12:00 PM – 4:00 PM',
+            'donation_status' => false,
+        ]);
+
+        $pasta = Food::create([
+            'user_id' => $provider2->id,
+            'food_name' => 'Vegetable Pasta',
+            'category' => 'Prepared Meals',
+            'quantity' => 5,
+            'price' => 50.00,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'donation_status' => true,
+        ]);
+
+        $bread = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Artisan Bread Roll',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 8,
+            'price' => 30.00,
+            'expiration_time' => now()->addDays(3),
+            'pickup_window' => '08:00 AM – 11:00 AM',
+            'donation_status' => false,
+        ]);
+
+        $nonFavoritedBurger = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Cheeseburger Delight',
+            'category' => 'Prepared Meals',
+            'quantity' => 12,
+            'price' => 90.00,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '01:00 PM – 05:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // 3. Authenticate User A and favorite Pizza, Pasta, and Bread (NOT Cheeseburger)
+        $userA = User::create([
+            'name' => 'Consumer Alice',
+            'email' => 'alice@example.com',
+            'phone' => '+880 1800-111000',
+            'role' => 'consumer',
+            'password' => bcrypt('password'),
+        ]);
+
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $pizza->id]);
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $pasta->id]);
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $bread->id]);
+
+        // Test 1: Search by food name "Pizza" among favorites
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&search=Pizza');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Pepperoni Pizza', $data[0]['food_name']);
+
+        // Test 2: Search by provider name "Italian" among favorites
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&search=Italian');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Vegetable Pasta', $data[0]['food_name']);
+
+        // Test 3: Filter by Category "Bakery & Pastries"
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&category=' . urlencode('Bakery & Pastries'));
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Artisan Bread Roll', $data[0]['food_name']);
+
+        // Test 4: Filter by Listing Type "donated"
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&type=donated');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Vegetable Pasta', $data[0]['food_name']);
+
+        // Test 5: Filter by Price Range (min_price = 40, max_price = 150)
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&min_price=40&max_price=150');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(2, $data); // Pizza (120) & Pasta (50)
+
+        // Test 6: Non-favorited item NEVER appears in favorites search
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(3, $data);
+        $itemIds = collect($data)->pluck('id')->toArray();
+        $this->assertNotContains($nonFavoritedBurger->id, $itemIds);
     }
 }
