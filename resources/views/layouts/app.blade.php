@@ -62,12 +62,16 @@
                 },
                 async fetchFilteredFoods() {
                     const path = window.location.pathname;
-                    if (path !== '/' && path !== '/marketplace' && path !== '/donations') {
+                    if (path !== '/' && path !== '/marketplace' && path !== '/donations' && path !== '/favorites') {
                         return;
                     }
 
                     this.loading = true;
                     const params = new URLSearchParams();
+
+                    if (path === '/favorites') {
+                        params.append('only_favorites', '1');
+                    }
 
                     if (path === '/donations' || this.filters.type === 'donated') {
                         params.append('is_donation_page', '1');

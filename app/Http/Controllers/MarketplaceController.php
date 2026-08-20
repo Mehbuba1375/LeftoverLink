@@ -109,7 +109,19 @@ class MarketplaceController extends Controller
      */
     public function searchApi(Request $request)
     {
-        $query = Food::available()->with(['user:id,name,phone,address', 'reviews']);
+        if ($request->boolean('only_favorites')) {
+            if (!auth()->check()) {
+                return response()->json([
+                    'count' => 0,
+                    'data' => [],
+                    'current_user' => null,
+                    'providers' => [],
+                ]);
+            }
+            $query = auth()->user()->favoriteFoods()->with(['user:id,name,phone,address', 'reviews']);
+        } else {
+            $query = Food::available()->with(['user:id,name,phone,address', 'reviews']);
+        }
 
         $this->applyFilters($query, $request);
 
@@ -174,15 +186,15 @@ class MarketplaceController extends Controller
     {
         // Enforce donation_status = true if on donations page or type = donated
         if ($request->boolean('is_donation_page') || $request->type === 'donated') {
-            $query->where('donation_status', true);
+            $query->where('foods.donation_status', true);
         } elseif ($request->filled('type') && $request->type === 'discounted') {
-            $query->where('donation_status', false);
+            $query->where('foods.donation_status', false);
         }
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('food_name', 'like', "%{$search}%")
+                $q->where('foods.food_name', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($uq) use ($search) {
                       $uq->where('name', 'like', "%{$search}%");
                   });
@@ -190,29 +202,31 @@ class MarketplaceController extends Controller
         }
 
         if ($request->filled('category') && $request->category !== 'all') {
-            $query->where('category', $request->category);
+            $query->where('foods.category', $request->category);
         }
 
         if ($request->filled('min_price')) {
-            $query->where('price', '>=', $request->min_price);
+            $query->where('foods.price', '>=', $request->min_price);
         }
 
         if ($request->filled('max_price')) {
-            $query->where('price', '<=', $request->max_price);
+            $query->where('foods.price', '<=', $request->max_price);
         }
 
         if ($request->filled('provider_id') && $request->provider_id !== 'all') {
-            $query->where('user_id', $request->provider_id);
+            $query->where('foods.user_id', $request->provider_id);
         }
 
         // Apply Sorting
         $sort = $request->input('sort', 'latest');
         match ($sort) {
-            'oldest' => $query->orderBy('created_at', 'asc'),
-            'price_low' => $query->orderBy('price', 'asc'),
-            'price_high' => $query->orderBy('price', 'desc'),
-            'expiring_soon' => $query->orderBy('expiration_time', 'asc'),
-            default => $query->orderBy('created_at', 'desc'),
+            'oldest' => $query->orderBy('foods.created_at', 'asc'),
+            'price_low' => $query->orderBy('foods.price', 'asc'),
+            'price_high' => $query->orderBy('foods.price', 'desc'),
+            'expiring_soon' => $query->orderBy('foods.expiration_time', 'asc'),
+            default => $request->boolean('only_favorites')
+                ? $query->orderBy('favorites.created_at', 'desc')
+                : $query->orderBy('foods.created_at', 'desc'),
         };
     }
 }
