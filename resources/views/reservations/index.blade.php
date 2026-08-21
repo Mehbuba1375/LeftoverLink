@@ -156,11 +156,34 @@
                                     <span>Reserved: <strong class="text-[#222222] font-medium">{{ $reservation->reserved_at->format('M d, Y h:i A') }}</strong></span>
                                 </div>
 
-                                {{-- Pickup Window --}}
+                                {{-- Pickup Window & Schedule --}}
                                 @if($reservation->food)
                                     <div class="flex items-center gap-1.5 text-[11px]">
                                         <i class="fa-solid fa-clock text-[#666666]"></i>
-                                        <span>Pickup: <strong class="text-[#222222] font-medium">{{ $reservation->food->pickup_window }}</strong></span>
+                                        <span>Pickup Window: <strong class="text-[#222222] font-medium">{{ $reservation->food->pickup_window }}</strong></span>
+                                    </div>
+                                @endif
+
+                                @if($reservation->preferred_pickup_date)
+                                    <div class="p-2 bg-[#F5F5F5] rounded-lg space-y-1 text-[11px]">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-[#222222]">Pickup Schedule:</span>
+                                            @if($reservation->isScheduleApproved())
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">Approved</span>
+                                            @elseif($reservation->isScheduleAdjusted())
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">Adjusted</span>
+                                            @else
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">Pending</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            Requested: <strong class="text-[#222222]">{{ $reservation->formatted_preferred_schedule }}</strong>
+                                        </div>
+                                        @if($reservation->approved_pickup_date && ($reservation->isScheduleApproved() || $reservation->isScheduleAdjusted()))
+                                            <div>
+                                                Confirmed: <strong class="text-[#2E7D32]">{{ $reservation->formatted_approved_schedule }}</strong>
+                                            </div>
+                                        @endif
                                     </div>
                                 @endif
 
@@ -183,6 +206,47 @@
                                     <div class="flex items-start gap-1.5 text-[11px]">
                                         <i class="fa-solid fa-sticky-note text-amber-500 mt-0.5"></i>
                                         <span class="line-clamp-2">{{ $reservation->notes }}</span>
+                                    </div>
+                                @endif
+
+                                {{-- Leaflet Pickup Location Map Button & Modal --}}
+                                @if($reservation->food)
+                                    <div x-data="{ locModal: false, mapInstance: null }" class="pt-1">
+                                        <button type="button" @click="locModal = true; $nextTick(() => {
+                                            if (!mapInstance) {
+                                                const lat = {{ $reservation->food->latitude ? $reservation->food->latitude : 23.8103 }};
+                                                const lng = {{ $reservation->food->longitude ? $reservation->food->longitude : 90.4125 }};
+                                                mapInstance = L.map('res-map-{{ $reservation->id }}').setView([lat, lng], 14);
+                                                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                                    maxZoom: 19,
+                                                    attribution: '&copy; OpenStreetMap'
+                                                }).addTo(mapInstance);
+                                                L.marker([lat, lng]).addTo(mapInstance)
+                                                    .bindPopup('<b>{{ addslashes($reservation->food->food_name) }}</b><br>Provider: {{ addslashes($reservation->food->user->name ?? "Food Provider") }}<br>Pickup Window: {{ addslashes($reservation->food->pickup_window ?? "N/A") }}')
+                                                    .openPopup();
+                                            } else {
+                                                setTimeout(() => mapInstance.invalidateSize(), 200);
+                                            }
+                                        })" class="w-full py-2 px-3 bg-[#2E7D32]/10 hover:bg-[#2E7D32]/20 text-[#2E7D32] text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                                            <i class="fa-solid fa-map-location-dot"></i> View Pickup Map
+                                        </button>
+
+                                        <!-- Leaflet Map Modal -->
+                                        <div x-show="locModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+                                            <div @click.outside="locModal = false" class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 text-left">
+                                                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                                    <div>
+                                                        <h3 class="text-sm font-heading font-bold text-[#222222]">Pickup Location Map</h3>
+                                                        <p class="text-[11px] text-[#666666]">{{ $reservation->food->user->name ?? 'Food Provider' }} • {{ $reservation->food->pickup_window }}</p>
+                                                    </div>
+                                                    <button type="button" @click="locModal = false" class="text-[#666666] hover:text-[#222222]"><i class="fa-solid fa-xmark"></i></button>
+                                                </div>
+                                                <div id="res-map-{{ $reservation->id }}" class="w-full h-64 rounded-xl border border-gray-100 z-0"></div>
+                                                <div class="flex justify-end pt-2">
+                                                    <button type="button" @click="locModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Close Map</button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 @endif
                             </div>

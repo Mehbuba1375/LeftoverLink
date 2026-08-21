@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function () {
     Route::match(['post', 'patch'], '/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
     Route::match(['post', 'patch'], '/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
     Route::match(['post', 'patch'], '/reservations/{reservation}/provider-cancel', [ReservationController::class, 'providerCancel'])->name('reservations.provider-cancel');
+    Route::match(['post', 'patch'], '/reservations/{reservation}/approve-schedule', [ReservationController::class, 'approveSchedule'])->name('reservations.approve-schedule');
+    Route::match(['post', 'patch'], '/reservations/{reservation}/adjust-schedule', [ReservationController::class, 'adjustSchedule'])->name('reservations.adjust-schedule');
 
     // Review Submission
     Route::post('/foods/{food}/reviews', [ReviewController::class, 'store'])->name('reviews.store');

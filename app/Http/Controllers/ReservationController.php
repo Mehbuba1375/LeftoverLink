@@ -28,8 +28,20 @@ class ReservationController extends Controller
 
         $validated = $request->validate([
             'quantity' => 'required|integer|min:1',
+            'preferred_pickup_date' => 'nullable|date|after_or_equal:today',
+            'preferred_pickup_time' => 'nullable|string',
             'notes' => 'nullable|string|max:500',
         ]);
+
+        // Validate preferred pickup time falls within food listing's pickup window
+        if (!empty($validated['preferred_pickup_time']) && $food->pickup_start_time && $food->pickup_end_time) {
+            if (!$this->isTimeWithinWindow($validated['preferred_pickup_time'], $food->pickup_start_time, $food->pickup_end_time)) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => "Selected pickup time must fall within the food listing's pickup window ({$food->pickup_window})."], 422);
+                }
+                return back()->with('error', "Selected pickup time must fall within the food listing's pickup window ({$food->pickup_window}).");
+            }
+        }
 
         // Check if the food item is still available (not expired, has stock)
         if ($food->expiration_time <= now()) {
@@ -71,12 +83,17 @@ class ReservationController extends Controller
             // Decrement food quantity
             $food->decrement('quantity', $validated['quantity']);
 
-            // Create reservation
+            // Create reservation with schedule details
             Reservation::create([
                 'user_id' => $user->id,
                 'food_id' => $food->id,
                 'quantity' => $validated['quantity'],
                 'status' => Reservation::STATUS_RESERVED,
+                'preferred_pickup_date' => $validated['preferred_pickup_date'] ?? null,
+                'preferred_pickup_time' => $validated['preferred_pickup_time'] ?? null,
+                'approved_pickup_date' => $validated['preferred_pickup_date'] ?? null,
+                'approved_pickup_time' => $validated['preferred_pickup_time'] ?? null,
+                'pickup_schedule_status' => 'pending',
                 'reserved_at' => now(),
                 'notes' => $validated['notes'] ?? null,
             ]);
@@ -347,5 +364,17 @@ class ReservationController extends Controller
     public function providerCancel(Request $request, Reservation $reservation)
     {
         return $this->cancel($request, $reservation);
+    }
+
+    /**
+     * Private helper to check if selected time is within start and end time window.
+     */
+    private function isTimeWithinWindow(string $selectedTime, string $startTime, string $endTime): bool
+    {
+        $selected = \Carbon\Carbon::parse($selectedTime)->format('H:i');
+        $start = \Carbon\Carbon::parse($startTime)->format('H:i');
+        $end = \Carbon\Carbon::parse($endTime)->format('H:i');
+
+        return $selected >= $start && $selected <= $end;
     }
 }

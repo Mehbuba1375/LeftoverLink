@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Favorite;
 use App\Models\Food;
 use App\Models\FoodRequest;
 use App\Models\User;
@@ -766,5 +767,300 @@ class CommonAndMemberOneTest extends TestCase
         // Provider average rating reflects both reviews: (5 + 3) / 2 = 4.0
         $this->assertEquals(4.0, $provider->fresh()->average_rating);
         $this->assertEquals(2, $provider->fresh()->reviews_count);
+    }
+
+    public function test_pickup_scheduling_system_workflow()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        // Food listing with pickup window 10:00 AM - 2:00 PM (10:00 - 14:00)
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Scheduled Gourmet Lunch',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 120,
+            'expiration_time' => now()->addDays(5),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'pickup_start_time' => '10:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+        ]);
+
+        $futureDate = now()->addDays(2)->format('Y-m-d');
+
+        // Test 1: Invalid pickup time outside window (09:00 AM is before 10:00 AM)
+        $invalidRes = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', [
+            'quantity' => 1,
+            'preferred_pickup_date' => $futureDate,
+            'preferred_pickup_time' => '09:00',
+        ]);
+        $invalidRes->assertSessionHas('error');
+
+        // Test 2: Valid reservation with preferred date & time (11:30 AM is inside window)
+        $validRes = $this->actingAs($consumer)->post('/foods/' . $food->id . '/reserve', [
+            'quantity' => 2,
+            'preferred_pickup_date' => $futureDate,
+            'preferred_pickup_time' => '11:30',
+        ]);
+        $validRes->assertRedirect('/reservations');
+
+        $reservation = \App\Models\Reservation::where('user_id', $consumer->id)->first();
+        $this->assertNotNull($reservation);
+        $this->assertEquals($futureDate, $reservation->preferred_pickup_date->format('Y-m-d'));
+        $this->assertEquals('11:30', \Carbon\Carbon::parse($reservation->preferred_pickup_time)->format('H:i'));
+        $this->assertEquals('pending', $reservation->pickup_schedule_status);
+        $this->assertEquals('reserved', $reservation->status);
+
+        // Test 3: Provider approves requested schedule
+        $approveRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/approve-schedule');
+        $approveRes->assertRedirect();
+
+        $reservation->refresh();
+        $this->assertEquals('approved', $reservation->pickup_schedule_status);
+        $this->assertEquals('reserved', $reservation->status); // Remains reserved
+
+        // Test 4: Provider adjusts schedule to another valid date & time (13:00 / 1:00 PM)
+        $adjustedDate = now()->addDays(3)->format('Y-m-d');
+        $adjustRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/adjust-schedule', [
+            'adjusted_pickup_date' => $adjustedDate,
+            'adjusted_pickup_time' => '13:00',
+        ]);
+        $adjustRes->assertRedirect();
+
+        $reservation->refresh();
+        $this->assertEquals('adjusted', $reservation->pickup_schedule_status);
+        $this->assertEquals($adjustedDate, $reservation->approved_pickup_date->format('Y-m-d'));
+        $this->assertEquals('13:00', \Carbon\Carbon::parse($reservation->approved_pickup_time)->format('H:i'));
+        $this->assertEquals('reserved', $reservation->status); // Remains reserved
+
+        // Test 5: Mark completed still functions correctly
+        $completeRes = $this->actingAs($provider)->post('/reservations/' . $reservation->id . '/complete');
+        $completeRes->assertRedirect();
+        $this->assertEquals('completed', $reservation->fresh()->status);
+    }
+
+    public function test_leaflet_map_location_data_integration()
+    {
+        $provider = User::factory()->create(['name' => 'Green Bakery', 'role' => 'food_provider']);
+
+        // Create food listing with specific Leaflet map coordinates
+        $food = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Organic Sourdough Bread',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 5,
+            'price' => 150,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'pickup_start_time' => '10:00',
+            'pickup_end_time' => '14:00',
+            'donation_status' => false,
+            'latitude' => 23.8103,
+            'longitude' => 90.4125,
+        ]);
+
+        // Query search API endpoint used by Leaflet map overlay
+        $response = $this->getJson('/marketplace/api/search');
+        $response->assertStatus(200);
+
+        $json = $response->json();
+        $this->assertGreaterThanOrEqual(1, $json['count']);
+
+        $item = collect($json['data'])->firstWhere('id', $food->id);
+        $this->assertNotNull($item);
+        $this->assertEquals('Organic Sourdough Bread', $item['food_name']);
+        $this->assertEquals('Green Bakery', $item['provider_name']);
+        $this->assertEquals(23.8103, (float)$item['latitude']);
+        $this->assertEquals(90.4125, (float)$item['longitude']);
+    }
+
+    public function test_user_registration_and_profile_location_selection_and_map_markers()
+    {
+        // 1. User registration with Leaflet map location selection
+        $regData = [
+            'name' => 'Loc User',
+            'email' => 'locuser@example.com',
+            'phone' => '+880 1700-111222',
+            'role' => 'consumer',
+            'latitude' => 23.7901,
+            'longitude' => 90.4022,
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+        ];
+
+        $regResponse = $this->post('/register', $regData);
+        $regResponse->assertRedirect('/marketplace');
+
+        $user = User::where('email', 'locuser@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertEquals(23.7901, (float)$user->latitude);
+        $this->assertEquals(90.4022, (float)$user->longitude);
+
+        // 2. Profile update with new location
+        $updateResponse = $this->actingAs($user)->post('/profile/info', [
+            'name' => 'Loc User Updated',
+            'email' => 'locuser@example.com',
+            'phone' => '+880 1700-111222',
+            'latitude' => 23.8200,
+            'longitude' => 90.4200,
+        ]);
+        $updateResponse->assertSessionHas('success');
+
+        $user->refresh();
+        $this->assertEquals(23.8200, (float)$user->latitude);
+        $this->assertEquals(90.4200, (float)$user->longitude);
+
+        // 3. Register a Food Provider with valid coordinates
+        $provider = User::create([
+            'name' => 'Blue Provider Bakery',
+            'email' => 'blueprovider@example.com',
+            'phone' => '+880 1800-999888',
+            'role' => 'food_provider',
+            'latitude' => 23.7500,
+            'longitude' => 90.3800,
+            'password' => bcrypt('secret123'),
+        ]);
+
+        // 4. Query marketplace search API as authenticated user
+        $apiResponse = $this->actingAs($user)->getJson('/marketplace/api/search');
+        $apiResponse->assertStatus(200);
+
+        $json = $apiResponse->json();
+        
+        // Assert Red current user marker location payload
+        $this->assertNotNull($json['current_user']);
+        $this->assertEquals($user->id, $json['current_user']['id']);
+        $this->assertEquals(23.8200, (float)$json['current_user']['latitude']);
+        $this->assertEquals(90.4200, (float)$json['current_user']['longitude']);
+
+        // Assert Blue food provider markers payload
+        $providersPayload = collect($json['providers']);
+        $providerItem = $providersPayload->firstWhere('id', $provider->id);
+        $this->assertNotNull($providerItem);
+        $this->assertEquals('Blue Provider Bakery', $providerItem['name']);
+        $this->assertEquals(23.7500, (float)$providerItem['latitude']);
+        $this->assertEquals(90.3800, (float)$providerItem['longitude']);
+    }
+
+    public function test_consumer_can_search_and_filter_favorites_only_among_their_own_saved_items()
+    {
+        // 1. Create two food providers
+        $provider1 = User::create([
+            'name' => 'Sunset Bakery House',
+            'email' => 'pizzahouse@example.com',
+            'phone' => '+880 1711-000111',
+            'role' => 'food_provider',
+            'password' => bcrypt('password'),
+        ]);
+
+        $provider2 = User::create([
+            'name' => 'Italian Pasta Corner',
+            'email' => 'pastacorner@example.com',
+            'phone' => '+880 1711-000222',
+            'role' => 'food_provider',
+            'password' => bcrypt('password'),
+        ]);
+
+        // 2. Create food items
+        $pizza = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Pepperoni Pizza',
+            'category' => 'Prepared Meals',
+            'quantity' => 10,
+            'price' => 120.00,
+            'expiration_time' => now()->addDays(2),
+            'pickup_window' => '12:00 PM – 4:00 PM',
+            'donation_status' => false,
+        ]);
+
+        $pasta = Food::create([
+            'user_id' => $provider2->id,
+            'food_name' => 'Vegetable Pasta',
+            'category' => 'Prepared Meals',
+            'quantity' => 5,
+            'price' => 50.00,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '10:00 AM – 2:00 PM',
+            'donation_status' => true,
+        ]);
+
+        $bread = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Artisan Bread Roll',
+            'category' => 'Bakery & Pastries',
+            'quantity' => 8,
+            'price' => 30.00,
+            'expiration_time' => now()->addDays(3),
+            'pickup_window' => '08:00 AM – 11:00 AM',
+            'donation_status' => false,
+        ]);
+
+        $nonFavoritedBurger = Food::create([
+            'user_id' => $provider1->id,
+            'food_name' => 'Cheeseburger Delight',
+            'category' => 'Prepared Meals',
+            'quantity' => 12,
+            'price' => 90.00,
+            'expiration_time' => now()->addDays(1),
+            'pickup_window' => '01:00 PM – 05:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // 3. Authenticate User A and favorite Pizza, Pasta, and Bread (NOT Cheeseburger)
+        $userA = User::create([
+            'name' => 'Consumer Alice',
+            'email' => 'alice@example.com',
+            'phone' => '+880 1800-111000',
+            'role' => 'consumer',
+            'password' => bcrypt('password'),
+        ]);
+
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $pizza->id]);
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $pasta->id]);
+        Favorite::create(['user_id' => $userA->id, 'food_id' => $bread->id]);
+
+        // Test 1: Search by food name "Pizza" among favorites
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&search=Pizza');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Pepperoni Pizza', $data[0]['food_name']);
+
+        // Test 2: Search by provider name "Italian" among favorites
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&search=Italian');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Vegetable Pasta', $data[0]['food_name']);
+
+        // Test 3: Filter by Category "Bakery & Pastries"
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&category=' . urlencode('Bakery & Pastries'));
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Artisan Bread Roll', $data[0]['food_name']);
+
+        // Test 4: Filter by Listing Type "donated"
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&type=donated');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Vegetable Pasta', $data[0]['food_name']);
+
+        // Test 5: Filter by Price Range (min_price = 40, max_price = 150)
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1&min_price=40&max_price=150');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(2, $data); // Pizza (120) & Pasta (50)
+
+        // Test 6: Non-favorited item NEVER appears in favorites search
+        $response = $this->actingAs($userA)->getJson('/marketplace/api/search?only_favorites=1');
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(3, $data);
+        $itemIds = collect($data)->pluck('id')->toArray();
+        $this->assertNotContains($nonFavoritedBurger->id, $itemIds);
     }
 }

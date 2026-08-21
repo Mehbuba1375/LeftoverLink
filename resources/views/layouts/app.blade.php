@@ -38,8 +38,10 @@
         }
     </script>
 
-    <!-- FontAwesome & Alpine JS -->
+    <!-- FontAwesome, Leaflet & Alpine JS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
     <script>
         document.addEventListener('alpine:init', () => {
@@ -60,12 +62,16 @@
                 },
                 async fetchFilteredFoods() {
                     const path = window.location.pathname;
-                    if (path !== '/' && path !== '/marketplace' && path !== '/donations') {
+                    if (path !== '/' && path !== '/marketplace' && path !== '/donations' && path !== '/favorites') {
                         return;
                     }
 
                     this.loading = true;
                     const params = new URLSearchParams();
+
+                    if (path === '/favorites') {
+                        params.append('only_favorites', '1');
+                    }
 
                     if (path === '/donations' || this.filters.type === 'donated') {
                         params.append('is_donation_page', '1');
@@ -87,6 +93,13 @@
                         this.foods = json.data || [];
                         this.itemsCount = json.count || 0;
                         this.initialized = true;
+                        window.dispatchEvent(new CustomEvent('marketplace-foods-updated', { 
+                            detail: { 
+                                foods: this.foods, 
+                                current_user: json.current_user || null, 
+                                providers: json.providers || [] 
+                            } 
+                        }));
                     } catch (e) {
                         console.error("Search error:", e);
                     } finally {
