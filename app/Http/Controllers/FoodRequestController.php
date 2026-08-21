@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\FoodRequest;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FoodRequestController extends Controller
 {
@@ -127,10 +129,33 @@ class FoodRequestController extends Controller
             return back()->with('error', 'This request has already been processed as ' . $foodRequest->status . '.');
         }
 
-        $foodRequest->update([
-            'status' => FoodRequest::STATUS_APPROVED,
-            'approved_at' => now(),
-        ]);
+        DB::transaction(function () use ($foodRequest) {
+            // Delete any existing approved request by the same NGO for the same food to avoid unique constraint conflict
+            FoodRequest::where('user_id', $foodRequest->user_id)
+                ->where('food_id', $foodRequest->food_id)
+                ->where('status', FoodRequest::STATUS_APPROVED)
+                ->where('id', '!=', $foodRequest->id)
+                ->delete();
+
+            // Decrement food quantity
+            if ($foodRequest->food && $foodRequest->food->quantity > 0) {
+                $foodRequest->food->decrement('quantity', min($foodRequest->quantity, $foodRequest->food->quantity));
+            }
+
+            $foodRequest->update([
+                'status' => FoodRequest::STATUS_APPROVED,
+                'approved_at' => now(),
+            ]);
+        });
+
+        // SMS Notification — Module 3 (SM OMER AZAM): NGO Request Approved
+        $ngoUser = $foodRequest->user;
+        if ($ngoUser && $ngoUser->phone) {
+            (new SmsService())->send(
+                $ngoUser->phone,
+                "LeftoverLink: Great news! Your food collection request for '{$foodRequest->food->food_name}' has been approved by the provider. Please coordinate pickup."
+            );
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -168,6 +193,15 @@ class FoodRequestController extends Controller
             'status' => FoodRequest::STATUS_REJECTED,
             'rejected_at' => now(),
         ]);
+
+        // SMS Notification — Module 3 (SM OMER AZAM): NGO Request Rejected
+        $ngoUserRejected = $foodRequest->user;
+        if ($ngoUserRejected && $ngoUserRejected->phone) {
+            (new SmsService())->send(
+                $ngoUserRejected->phone,
+                "LeftoverLink: Unfortunately, your food collection request for '{$foodRequest->food->food_name}' has been rejected by the provider. Please try another listing."
+            );
+        }
 
         if ($request->wantsJson()) {
             return response()->json([

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\Reservation;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -81,6 +82,15 @@ class ReservationController extends Controller
             ]);
         });
 
+        // SMS Notification — Module 3 (SM OMER AZAM): Reservation Confirmation
+        $reservedUser = auth()->user();
+        if ($reservedUser->phone) {
+            (new SmsService())->send(
+                $reservedUser->phone,
+                "LeftoverLink: Your reservation for '{$food->food_name}' is confirmed! Pickup window: {$food->pickup_window}. Thank you!"
+            );
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Food item reserved successfully! Please pick it up during the pickup window.',
@@ -126,6 +136,15 @@ class ReservationController extends Controller
             ]);
         });
 
+        // SMS Notification — Module 3 (SM OMER AZAM): Cancellation Alert
+        $cancelledConsumer = $reservation->user;
+        if ($cancelledConsumer && $cancelledConsumer->phone) {
+            (new SmsService())->send(
+                $cancelledConsumer->phone,
+                "LeftoverLink: Your reservation for '{$reservation->food->food_name}' has been cancelled. The item is now available again."
+            );
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Reservation cancelled successfully. The food item is now available again.',
@@ -163,6 +182,15 @@ class ReservationController extends Controller
             'completed_at' => now(),
         ]);
 
+        // SMS Notification — Module 3 (SM OMER AZAM): Completion & Review Prompt
+        $completedConsumer = $reservation->user;
+        if ($completedConsumer && $completedConsumer->phone) {
+            (new SmsService())->send(
+                $completedConsumer->phone,
+                "LeftoverLink: Your food pickup for '{$reservation->food->food_name}' is complete! Please log in to leave a review. Thank you for reducing food waste!"
+            );
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Reservation marked as completed. Pickup confirmed!',
@@ -171,6 +199,99 @@ class ReservationController extends Controller
         }
 
         return back()->with('success', '✅ Reservation marked as completed. Pickup confirmed!');
+    }
+
+    /**
+     * Provider approves requested pickup schedule.
+     */
+    public function approveSchedule(Request $request, Reservation $reservation)
+    {
+        $user = auth()->user();
+
+        if (!$reservation->food || ((int)$reservation->food->user_id !== (int)$user->id && !$user->isAdmin())) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Unauthorized action.'], 403);
+            }
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $reservation->update([
+            'approved_pickup_date' => $reservation->preferred_pickup_date ?? $reservation->approved_pickup_date,
+            'approved_pickup_time' => $reservation->preferred_pickup_time ?? $reservation->approved_pickup_time,
+            'pickup_schedule_status' => 'approved',
+        ]);
+
+        // SMS Notification — Module 3 (SM OMER AZAM): Schedule Approved
+        $scheduleConsumer = $reservation->user;
+        if ($scheduleConsumer && $scheduleConsumer->phone) {
+            $dateStr = $reservation->approved_pickup_date ? $reservation->approved_pickup_date->format('M d, Y') : 'TBD';
+            $timeStr = $reservation->approved_pickup_time ? \Carbon\Carbon::parse($reservation->approved_pickup_time)->format('g:i A') : '';
+            (new SmsService())->send(
+                $scheduleConsumer->phone,
+                "LeftoverLink: Your pickup schedule for '{$reservation->food->food_name}' has been approved! Date: {$dateStr} {$timeStr}."
+            );
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Pickup schedule approved successfully!']);
+        }
+
+        return back()->with('success', '✅ Pickup schedule approved successfully!');
+    }
+
+    /**
+     * Provider adjusts requested pickup schedule.
+     */
+    public function adjustSchedule(Request $request, Reservation $reservation)
+    {
+        $user = auth()->user();
+
+        if (!$reservation->food || ((int)$reservation->food->user_id !== (int)$user->id && !$user->isAdmin())) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Unauthorized action.'], 403);
+            }
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'adjusted_pickup_date' => 'required|date|after_or_equal:today',
+            'adjusted_pickup_time' => 'required|string',
+        ]);
+
+        $food = $reservation->food;
+
+        // Validate adjusted pickup time falls within food listing's pickup window
+        if ($food->pickup_start_time && $food->pickup_end_time) {
+            if (!$this->isTimeWithinWindow($validated['adjusted_pickup_time'], $food->pickup_start_time, $food->pickup_end_time)) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => "Adjusted pickup time must fall within the food listing's pickup window ({$food->pickup_window})."], 422);
+                }
+                return back()->with('error', "Adjusted pickup time must fall within the food listing's pickup window ({$food->pickup_window}).");
+            }
+        }
+
+        $reservation->update([
+            'approved_pickup_date' => $validated['adjusted_pickup_date'],
+            'approved_pickup_time' => $validated['adjusted_pickup_time'],
+            'pickup_schedule_status' => 'adjusted',
+        ]);
+
+        // SMS Notification — Module 3 (SM OMER AZAM): Schedule Adjusted
+        $adjustConsumer = $reservation->user;
+        if ($adjustConsumer && $adjustConsumer->phone) {
+            $adjDate = \Carbon\Carbon::parse($validated['adjusted_pickup_date'])->format('M d, Y');
+            $adjTime = \Carbon\Carbon::parse($validated['adjusted_pickup_time'])->format('g:i A');
+            (new SmsService())->send(
+                $adjustConsumer->phone,
+                "LeftoverLink: Your pickup schedule for '{$reservation->food->food_name}' has been adjusted by the provider. New time: {$adjDate} at {$adjTime}."
+            );
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Pickup schedule adjusted successfully!']);
+        }
+
+        return back()->with('success', '✅ Pickup schedule adjusted successfully!');
     }
 
     /**

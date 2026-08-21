@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SustainabilityController;
 use Illuminate\Support\Facades\Route;
 
 // Public Marketplace Routes
@@ -16,6 +17,9 @@ Route::get('/', [MarketplaceController::class, 'index'])->name('home');
 Route::get('/marketplace', [MarketplaceController::class, 'index'])->name('marketplace.index');
 Route::get('/donations', [MarketplaceController::class, 'donations'])->name('donations.index');
 Route::get('/marketplace/api/search', [MarketplaceController::class, 'searchApi'])->name('marketplace.api.search');
+
+// Sustainability Dashboard — Module 3 (SM OMER AZAM) — Public, no auth required
+Route::get('/sustainability', [SustainabilityController::class, 'index'])->name('sustainability.index');
 
 // Toggle Favorite (Handles guest redirect internally if unauthenticated)
 Route::post('/favorites/toggle/{food}', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
