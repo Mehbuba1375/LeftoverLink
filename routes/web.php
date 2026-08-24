@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SustainabilityController;
 use Illuminate\Support\Facades\Route;
 
 // Public Marketplace Routes
@@ -72,4 +73,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     });
+
+    // Sustainability Dashboard Route
+    Route::get('/sustainability', [SustainabilityController::class, 'index'])->name('sustainability.index');
 });
