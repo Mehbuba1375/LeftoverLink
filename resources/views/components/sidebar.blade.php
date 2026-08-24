@@ -84,7 +84,7 @@
                     <span>Reservation History</span>
                 </a>
 
-                {{-- Sustainability Dashboard — Module 3 (SM OMER AZAM) --}}
+                <!-- Sustainability Dashboard -->
                 <a href="{{ route('sustainability.index') }}" 
                    class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('sustainability.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
                     <i class="fa-solid fa-leaf w-5 text-base text-center"></i>
@@ -173,7 +173,6 @@
                     <a href="{{ route('reservations.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-clock-rotate-left w-5 text-center"></i> Reservation History
                     </a>
-                    {{-- Sustainability Dashboard — Module 3 (SM OMER AZAM) --}}
                     <a href="{{ route('sustainability.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-leaf w-5 text-center"></i> Sustainability
                     </a>

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\Reservation;
-use App\Services\SmsService;
+use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -79,12 +79,13 @@ class ReservationController extends Controller
         }
 
         // Use a transaction to ensure atomicity
-        DB::transaction(function () use ($food, $user, $validated) {
+        $reservation = null;
+        DB::transaction(function () use ($food, $user, $validated, &$reservation) {
             // Decrement food quantity
             $food->decrement('quantity', $validated['quantity']);
 
             // Create reservation with schedule details
-            Reservation::create([
+            $reservation = Reservation::create([
                 'user_id' => $user->id,
                 'food_id' => $food->id,
                 'quantity' => $validated['quantity'],
@@ -99,13 +100,13 @@ class ReservationController extends Controller
             ]);
         });
 
-        // SMS Notification — Module 3 (SM OMER AZAM): Reservation Confirmation
-        $reservedUser = auth()->user();
-        if ($reservedUser->phone) {
-            (new SmsService())->send(
-                $reservedUser->phone,
-                "LeftoverLink: Your reservation for '{$food->food_name}' is confirmed! Pickup window: {$food->pickup_window}. Thank you!"
-            );
+        // Send SMS notification for reservation confirmation
+        try {
+            if ($reservation) {
+                app(TwilioSmsService::class)->sendReservationConfirmation($reservation->load(['user', 'food']));
+            }
+        } catch (\Exception $e) {
+            // SMS failure should never block the reservation flow
         }
 
         if ($request->wantsJson()) {
@@ -153,13 +154,11 @@ class ReservationController extends Controller
             ]);
         });
 
-        // SMS Notification — Module 3 (SM OMER AZAM): Cancellation Alert
-        $cancelledConsumer = $reservation->user;
-        if ($cancelledConsumer && $cancelledConsumer->phone) {
-            (new SmsService())->send(
-                $cancelledConsumer->phone,
-                "LeftoverLink: Your reservation for '{$reservation->food->food_name}' has been cancelled. The item is now available again."
-            );
+        // Send SMS notification for cancellation
+        try {
+            app(TwilioSmsService::class)->sendReservationCancellation($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the cancellation flow
         }
 
         if ($request->wantsJson()) {
@@ -199,13 +198,11 @@ class ReservationController extends Controller
             'completed_at' => now(),
         ]);
 
-        // SMS Notification — Module 3 (SM OMER AZAM): Completion & Review Prompt
-        $completedConsumer = $reservation->user;
-        if ($completedConsumer && $completedConsumer->phone) {
-            (new SmsService())->send(
-                $completedConsumer->phone,
-                "LeftoverLink: Your food pickup for '{$reservation->food->food_name}' is complete! Please log in to leave a review. Thank you for reducing food waste!"
-            );
+        // Send SMS notification for pickup completion
+        try {
+            app(TwilioSmsService::class)->sendPickupCompleted($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the completion flow
         }
 
         if ($request->wantsJson()) {
@@ -238,15 +235,11 @@ class ReservationController extends Controller
             'pickup_schedule_status' => 'approved',
         ]);
 
-        // SMS Notification — Module 3 (SM OMER AZAM): Schedule Approved
-        $scheduleConsumer = $reservation->user;
-        if ($scheduleConsumer && $scheduleConsumer->phone) {
-            $dateStr = $reservation->approved_pickup_date ? $reservation->approved_pickup_date->format('M d, Y') : 'TBD';
-            $timeStr = $reservation->approved_pickup_time ? \Carbon\Carbon::parse($reservation->approved_pickup_time)->format('g:i A') : '';
-            (new SmsService())->send(
-                $scheduleConsumer->phone,
-                "LeftoverLink: Your pickup schedule for '{$reservation->food->food_name}' has been approved! Date: {$dateStr} {$timeStr}."
-            );
+        // Send SMS notification for schedule approval
+        try {
+            app(TwilioSmsService::class)->sendScheduleApproved($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the approval flow
         }
 
         if ($request->wantsJson()) {
@@ -293,15 +286,11 @@ class ReservationController extends Controller
             'pickup_schedule_status' => 'adjusted',
         ]);
 
-        // SMS Notification — Module 3 (SM OMER AZAM): Schedule Adjusted
-        $adjustConsumer = $reservation->user;
-        if ($adjustConsumer && $adjustConsumer->phone) {
-            $adjDate = \Carbon\Carbon::parse($validated['adjusted_pickup_date'])->format('M d, Y');
-            $adjTime = \Carbon\Carbon::parse($validated['adjusted_pickup_time'])->format('g:i A');
-            (new SmsService())->send(
-                $adjustConsumer->phone,
-                "LeftoverLink: Your pickup schedule for '{$reservation->food->food_name}' has been adjusted by the provider. New time: {$adjDate} at {$adjTime}."
-            );
+        // Send SMS notification for schedule adjustment
+        try {
+            app(TwilioSmsService::class)->sendScheduleAdjusted($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the adjustment flow
         }
 
         if ($request->wantsJson()) {

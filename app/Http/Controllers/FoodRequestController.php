@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\FoodRequest;
-use App\Services\SmsService;
+use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -148,13 +148,11 @@ class FoodRequestController extends Controller
             ]);
         });
 
-        // SMS Notification — Module 3 (SM OMER AZAM): NGO Request Approved
-        $ngoUser = $foodRequest->user;
-        if ($ngoUser && $ngoUser->phone) {
-            (new SmsService())->send(
-                $ngoUser->phone,
-                "LeftoverLink: Great news! Your food collection request for '{$foodRequest->food->food_name}' has been approved by the provider. Please coordinate pickup."
-            );
+        // Send SMS notification to NGO for approval
+        try {
+            app(TwilioSmsService::class)->sendNgoRequestApproved($foodRequest->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the approval flow
         }
 
         if ($request->wantsJson()) {
@@ -194,13 +192,11 @@ class FoodRequestController extends Controller
             'rejected_at' => now(),
         ]);
 
-        // SMS Notification — Module 3 (SM OMER AZAM): NGO Request Rejected
-        $ngoUserRejected = $foodRequest->user;
-        if ($ngoUserRejected && $ngoUserRejected->phone) {
-            (new SmsService())->send(
-                $ngoUserRejected->phone,
-                "LeftoverLink: Unfortunately, your food collection request for '{$foodRequest->food->food_name}' has been rejected by the provider. Please try another listing."
-            );
+        // Send SMS notification to NGO for rejection
+        try {
+            app(TwilioSmsService::class)->sendNgoRequestRejected($foodRequest->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the rejection flow
         }
 
         if ($request->wantsJson()) {

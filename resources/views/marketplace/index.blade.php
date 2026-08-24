@@ -218,6 +218,12 @@
                             <span x-show="!item.donation_status" class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#2E7D32] text-white shadow-xs">
                                 <i class="fa-solid fa-tags mr-1"></i> Discounted
                             </span>
+                            <span x-show="item.is_expired" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#EF4444] text-white shadow-xs">
+                                Expired
+                            </span>
+                            <span x-show="!item.is_expired && item.quantity <= 0" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                                Out of Stock
+                            </span>
                         </div>
 
                         <!-- Favorite Button -->
@@ -284,12 +290,12 @@
 
                         <!-- Action Buttons -->
                         <div x-data="{ reserveModal: false, reserveQty: 1, ngoModal: false, ngoQty: 1 }" class="pt-1 space-y-2">
-                            <template x-if="item.quantity <= 0">
+                            <template x-if="item.is_expired || item.quantity <= 0">
                                 <button disabled class="w-full py-2.5 bg-[#F5F5F5] text-[#666666] text-xs font-medium rounded-full cursor-not-allowed text-center">
                                     Unavailable
                                 </button>
                             </template>
-                            <template x-if="item.quantity > 0">
+                            <template x-if="!item.is_expired && item.quantity > 0">
                                 <div>
                                     @guest
                                         <a href="{{ route('login') }}" class="block w-full py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full text-center shadow-md shadow-[#EF4444]/20 hover:scale-105 transition-all">

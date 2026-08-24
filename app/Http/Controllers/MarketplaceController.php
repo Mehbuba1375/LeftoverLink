@@ -135,6 +135,8 @@ class MarketplaceController extends Controller
                 'quantity' => $food->quantity,
                 'price' => number_format($food->price, 2),
                 'expiration_time' => $food->expiration_time ? $food->expiration_time->format('M d, Y h:i A') : null,
+                'expiration_time_raw' => $food->expiration_time ? $food->expiration_time->toIso8601String() : null,
+                'is_expired' => $food->expiration_time ? $food->expiration_time->isPast() : false,
                 'pickup_window' => $food->pickup_window,
                 'pickup_start_time' => $food->pickup_start_time ? \Carbon\Carbon::parse($food->pickup_start_time)->format('H:i') : null,
                 'pickup_end_time' => $food->pickup_end_time ? \Carbon\Carbon::parse($food->pickup_end_time)->format('H:i') : null,

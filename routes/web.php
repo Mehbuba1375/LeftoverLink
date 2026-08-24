@@ -76,4 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     });
+
+    // Sustainability Dashboard Route
+    Route::get('/sustainability', [SustainabilityController::class, 'index'])->name('sustainability.index');
 });
