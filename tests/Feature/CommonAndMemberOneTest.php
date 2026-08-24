@@ -1063,4 +1063,44 @@ class CommonAndMemberOneTest extends TestCase
         $itemIds = collect($data)->pluck('id')->toArray();
         $this->assertNotContains($nonFavoritedBurger->id, $itemIds);
     }
+
+    public function test_expired_favorite_food_remains_visible_with_is_expired_flag_and_cannot_be_reserved()
+    {
+        $provider = User::factory()->create(['role' => 'food_provider']);
+        $consumer = User::factory()->create(['role' => 'consumer']);
+
+        // 1. Create an expired food listing
+        $expiredFood = Food::create([
+            'user_id' => $provider->id,
+            'food_name' => 'Expired Salad Box',
+            'category' => 'Fresh Produce',
+            'quantity' => 5,
+            'price' => 20,
+            'expiration_time' => now()->subHour(), // Expired 1 hour ago
+            'pickup_window' => '12:00 PM - 2:00 PM',
+            'donation_status' => false,
+        ]);
+
+        // 2. Consumer favorites the expired food item
+        Favorite::create(['user_id' => $consumer->id, 'food_id' => $expiredFood->id]);
+
+        // 3. Search API for favorites returns the expired item with is_expired = true
+        $response = $this->actingAs($consumer)->getJson('/marketplace/api/search?only_favorites=1');
+        $response->assertStatus(200);
+
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('Expired Salad Box', $data[0]['food_name']);
+        $this->assertTrue($data[0]['is_expired']);
+
+        // 4. Attempt direct reservation request for expired food fails with 422
+        $res = $this->actingAs($consumer)->postJson('/foods/' . $expiredFood->id . '/reserve', [
+            'quantity' => 1,
+            'preferred_pickup_date' => date('Y-m-d'),
+            'preferred_pickup_time' => '13:00',
+        ]);
+
+        $res->assertStatus(422);
+        $res->assertJson(['message' => 'This food item has expired and is no longer available.']);
+    }
 }

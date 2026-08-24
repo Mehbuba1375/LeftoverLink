@@ -6,6 +6,7 @@ use App\Models\Food;
 use App\Models\FoodRequest;
 use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FoodRequestController extends Controller
 {
@@ -128,10 +129,31 @@ class FoodRequestController extends Controller
             return back()->with('error', 'This request has already been processed as ' . $foodRequest->status . '.');
         }
 
-        $foodRequest->update([
-            'status' => FoodRequest::STATUS_APPROVED,
-            'approved_at' => now(),
-        ]);
+        DB::transaction(function () use ($foodRequest) {
+            // Delete any existing approved request by the same NGO for the same food to avoid unique constraint conflict
+            FoodRequest::where('user_id', $foodRequest->user_id)
+                ->where('food_id', $foodRequest->food_id)
+                ->where('status', FoodRequest::STATUS_APPROVED)
+                ->where('id', '!=', $foodRequest->id)
+                ->delete();
+
+            // Decrement food quantity
+            if ($foodRequest->food && $foodRequest->food->quantity > 0) {
+                $foodRequest->food->decrement('quantity', min($foodRequest->quantity, $foodRequest->food->quantity));
+            }
+
+            $foodRequest->update([
+                'status' => FoodRequest::STATUS_APPROVED,
+                'approved_at' => now(),
+            ]);
+        });
+
+        // Send SMS notification to NGO for approval
+        try {
+            app(TwilioSmsService::class)->sendNgoRequestApproved($foodRequest->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the approval flow
+        }
 
         // Send SMS notification to NGO for approval
         try {

@@ -18,6 +18,9 @@ Route::get('/marketplace', [MarketplaceController::class, 'index'])->name('marke
 Route::get('/donations', [MarketplaceController::class, 'donations'])->name('donations.index');
 Route::get('/marketplace/api/search', [MarketplaceController::class, 'searchApi'])->name('marketplace.api.search');
 
+// Sustainability Dashboard — Module 3 (SM OMER AZAM) — Public, no auth required
+Route::get('/sustainability', [SustainabilityController::class, 'index'])->name('sustainability.index');
+
 // Toggle Favorite (Handles guest redirect internally if unauthenticated)
 Route::post('/favorites/toggle/{food}', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
 
