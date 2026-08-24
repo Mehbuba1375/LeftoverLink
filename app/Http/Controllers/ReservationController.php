@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\Reservation;
+use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -78,12 +79,13 @@ class ReservationController extends Controller
         }
 
         // Use a transaction to ensure atomicity
-        DB::transaction(function () use ($food, $user, $validated) {
+        $reservation = null;
+        DB::transaction(function () use ($food, $user, $validated, &$reservation) {
             // Decrement food quantity
             $food->decrement('quantity', $validated['quantity']);
 
             // Create reservation with schedule details
-            Reservation::create([
+            $reservation = Reservation::create([
                 'user_id' => $user->id,
                 'food_id' => $food->id,
                 'quantity' => $validated['quantity'],
@@ -97,6 +99,15 @@ class ReservationController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
         });
+
+        // Send SMS notification for reservation confirmation
+        try {
+            if ($reservation) {
+                app(TwilioSmsService::class)->sendReservationConfirmation($reservation->load(['user', 'food']));
+            }
+        } catch (\Exception $e) {
+            // SMS failure should never block the reservation flow
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -143,6 +154,13 @@ class ReservationController extends Controller
             ]);
         });
 
+        // Send SMS notification for cancellation
+        try {
+            app(TwilioSmsService::class)->sendReservationCancellation($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the cancellation flow
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Reservation cancelled successfully. The food item is now available again.',
@@ -180,6 +198,13 @@ class ReservationController extends Controller
             'completed_at' => now(),
         ]);
 
+        // Send SMS notification for pickup completion
+        try {
+            app(TwilioSmsService::class)->sendPickupCompleted($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the completion flow
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Reservation marked as completed. Pickup confirmed!',
@@ -209,6 +234,13 @@ class ReservationController extends Controller
             'approved_pickup_time' => $reservation->preferred_pickup_time ?? $reservation->approved_pickup_time,
             'pickup_schedule_status' => 'approved',
         ]);
+
+        // Send SMS notification for schedule approval
+        try {
+            app(TwilioSmsService::class)->sendScheduleApproved($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the approval flow
+        }
 
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Pickup schedule approved successfully!']);
@@ -253,6 +285,13 @@ class ReservationController extends Controller
             'approved_pickup_time' => $validated['adjusted_pickup_time'],
             'pickup_schedule_status' => 'adjusted',
         ]);
+
+        // Send SMS notification for schedule adjustment
+        try {
+            app(TwilioSmsService::class)->sendScheduleAdjusted($reservation->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the adjustment flow
+        }
 
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Pickup schedule adjusted successfully!']);

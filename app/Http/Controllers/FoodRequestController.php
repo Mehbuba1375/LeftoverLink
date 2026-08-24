@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Food;
 use App\Models\FoodRequest;
+use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
 
 class FoodRequestController extends Controller
@@ -132,6 +133,13 @@ class FoodRequestController extends Controller
             'approved_at' => now(),
         ]);
 
+        // Send SMS notification to NGO for approval
+        try {
+            app(TwilioSmsService::class)->sendNgoRequestApproved($foodRequest->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the approval flow
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'NGO food collection request approved successfully!',
@@ -168,6 +176,13 @@ class FoodRequestController extends Controller
             'status' => FoodRequest::STATUS_REJECTED,
             'rejected_at' => now(),
         ]);
+
+        // Send SMS notification to NGO for rejection
+        try {
+            app(TwilioSmsService::class)->sendNgoRequestRejected($foodRequest->load(['user', 'food']));
+        } catch (\Exception $e) {
+            // SMS failure should never block the rejection flow
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
