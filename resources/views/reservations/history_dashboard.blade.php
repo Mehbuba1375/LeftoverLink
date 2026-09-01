@@ -269,10 +269,19 @@
                                 </div>
 
                                 {{-- Card Footer & Actions --}}
-                                <div class="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                                <div class="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                                     <button type="button" @click="selectedReceipt = {{ json_encode($paymentRecords->firstWhere('id', $res->id)) }}; showReceiptModal = true" class="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold rounded-xl transition-all text-center">
                                         <i class="fa-solid fa-file-invoice mr-1"></i> Receipt
                                     </button>
+
+                                    @if($res->isReserved() && $res->food && !$res->food->donation_status && $res->payment_status !== 'paid')
+                                        <form action="{{ route('payment.pay_reservation', $res->id) }}" method="POST" class="flex-1">
+                                            @csrf
+                                            <button type="submit" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all text-center flex items-center justify-center gap-1">
+                                                <i class="fa-solid fa-credit-card text-[11px]"></i> Pay Online
+                                            </button>
+                                        </form>
+                                    @endif
 
                                     @if($res->isReserved())
                                         <form action="{{ route('reservations.cancel', $res->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this reservation?')" class="flex-1">
@@ -462,7 +471,11 @@
                                         @endif
                                     </td>
                                     <td class="p-4 text-center">
-                                        @if($rec['payment_status'] === 'Paid on Pickup')
+                                        @if($rec['payment_status'] === 'Paid via SSLCommerz')
+                                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1">
+                                                <i class="fa-solid fa-[#003366] fa-shield-check"></i> Paid (SSLCommerz)
+                                            </span>
+                                        @elseif($rec['payment_status'] === 'Paid on Pickup')
                                             <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                                 Paid on Pickup
                                             </span>
@@ -480,10 +493,18 @@
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="p-4 text-center">
+                                    <td class="p-4 text-center space-y-1">
                                         <button type="button" @click="selectedReceipt = {{ json_encode($rec) }}; showReceiptModal = true" class="px-3 py-1.5 bg-gray-100 hover:bg-[#2E7D32] hover:text-white text-gray-700 text-[11px] font-bold rounded-lg transition-all">
                                             Receipt
                                         </button>
+                                        @if($rec['payment_status'] !== 'Paid via SSLCommerz' && !$rec['is_free'] && $rec['reservation_status'] === 'reserved')
+                                            <form action="{{ route('payment.pay_reservation', $rec['id']) }}" method="POST" class="inline-block">
+                                                @csrf
+                                                <button type="submit" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-md transition-all">
+                                                    Pay Now
+                                                </button>
+                                            </form>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
@@ -517,9 +538,15 @@
                 <div class="space-y-5 text-xs text-gray-700">
                     <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-2 font-mono">
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Receipt Ref:</span>
+                            <span class="text-gray-500">Transaction Ref:</span>
                             <span class="font-bold text-[#2E7D32]" x-text="selectedReceipt.transaction_ref"></span>
                         </div>
+                        <template x-if="selectedReceipt.val_id">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">SSL Validation ID:</span>
+                                <span class="font-bold text-sky-700" x-text="selectedReceipt.val_id"></span>
+                            </div>
+                        </template>
                         <div class="flex justify-between">
                             <span class="text-gray-500">Reservation ID:</span>
                             <span class="font-bold text-gray-900" x-text="selectedReceipt.reservation_code"></span>
@@ -538,6 +565,10 @@
                         <div class="flex justify-between border-b border-gray-100 pb-2">
                             <span class="text-gray-500">Food Provider:</span>
                             <span class="font-semibold text-gray-800" x-text="selectedReceipt.provider_name"></span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-100 pb-2">
+                            <span class="text-gray-500">Payment Gateway:</span>
+                            <span class="font-bold text-emerald-800" x-text="selectedReceipt.gateway_card_type"></span>
                         </div>
                         <div class="flex justify-between border-b border-gray-100 pb-2">
                             <span class="text-gray-500">Quantity Claimed:</span>
