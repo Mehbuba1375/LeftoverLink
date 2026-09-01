@@ -21,6 +21,8 @@ class Reservation extends Model
         'food_id',
         'quantity',
         'status',
+        'payment_status',
+        'payment_id',
         'preferred_pickup_date',
         'preferred_pickup_time',
         'approved_pickup_date',
@@ -57,6 +59,14 @@ class Reservation extends Model
     public function food()
     {
         return $this->belongsTo(Food::class);
+    }
+
+    /**
+     * Payment record for this reservation.
+     */
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     /**
