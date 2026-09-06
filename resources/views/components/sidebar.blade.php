@@ -53,12 +53,6 @@
                     @endif
                 @endauth
 
-                <!-- Cart -->
-                <a href="#cart" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32] transition-all duration-200">
-                    <i class="fa-solid fa-cart-shopping w-5 text-base text-center"></i>
-                    <span>Cart</span>
-                </a>
-
                 <!-- Favorites -->
                 <a href="{{ route('favorites.index') }}" 
                    class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('favorites.*') ? 'bg-[#2E7D32] text-white shadow-md shadow-[#2E7D32]/20 font-semibold' : 'text-[#222222] hover:bg-[#F5EED8] hover:text-[#2E7D32]' }}">
@@ -157,9 +151,6 @@
                             </a>
                         @endif
                     @endauth
-                    <a href="#cart" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
-                        <i class="fa-solid fa-cart-shopping w-5 text-center"></i> Cart
-                    </a>
                     <a href="{{ route('favorites.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-[#222222] hover:bg-[#F5EED8]">
                         <i class="fa-solid fa-heart w-5 text-center"></i> Favorites
                     </a>

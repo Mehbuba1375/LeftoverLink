@@ -83,11 +83,24 @@
         window.marketplaceCurrentUser = @json($currentUser ?? null);
         window.marketplaceProviders = @json($providerLocations ?? []);
 
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
         function marketplaceMapComponent() {
             return {
                 mapOpen: false,
                 map: null,
                 markers: [],
+                fixedRadiusKm: {{ config('services.map.radius_km', 10.0) }},
+                lastPayload: null,
                 initMap() {
                     if (this.map) {
                         setTimeout(() => this.map.invalidateSize(), 200);
@@ -104,9 +117,15 @@
                         }).addTo(this.map);
 
                         this.renderMapData(null);
+                        setTimeout(() => { if(this.map) this.map.invalidateSize(); }, 250);
                     });
                 },
                 renderMapData(payload) {
+                    if (payload !== null && payload !== undefined) {
+                        this.lastPayload = payload;
+                    }
+                    const activePayload = payload || this.lastPayload;
+
                     if (!this.map) return;
                     this.markers.forEach(m => this.map.removeLayer(m));
                     this.markers = [];
@@ -128,7 +147,7 @@
                     });
 
                     // 1. Current Authenticated User (Red Marker 🔴)
-                    const currentUser = (payload && payload.current_user) ? payload.current_user : window.marketplaceCurrentUser;
+                    const currentUser = (activePayload && activePayload.current_user) ? activePayload.current_user : window.marketplaceCurrentUser;
 
                     let userLat = null, userLng = null;
                     if (currentUser && currentUser.latitude && currentUser.longitude) {
@@ -142,8 +161,8 @@
                         bounds.push([userLat, userLng]);
                     }
 
-                    // 2. All Registered Food Providers (Blue Markers 🔵)
-                    const providers = (payload && payload.providers && payload.providers.length) ? payload.providers : (window.marketplaceProviders || []);
+                    // 2. Filtered Food Providers within Fixed Radius (Blue Markers 🔵)
+                    const providers = (activePayload && activePayload.providers && activePayload.providers.length) ? activePayload.providers : (window.marketplaceProviders || []);
 
                     providers.forEach((provider) => {
                         const pLat = parseFloat(provider.latitude);
@@ -153,9 +172,20 @@
                             return;
                         }
 
+                        let distanceKm = null;
+                        if (userLat !== null && userLng !== null) {
+                            distanceKm = haversineDistance(userLat, userLng, pLat, pLng);
+
+                            // Apply fixed distance radius limit
+                            if (distanceKm > this.fixedRadiusKm) {
+                                return; // Exclude providers outside fixed radius
+                            }
+                        }
+
                         const providerMarker = L.marker([pLat, pLng], { icon: blueIcon }).addTo(this.map);
                         const pNameEscaped = (provider.name || 'Food Provider').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        providerMarker.bindPopup('<div style="font-family:Poppins,sans-serif;padding:2px;text-align:left;"><div style="font-weight:700;font-size:12px;color:#2563EB;">Food Provider: ' + pNameEscaped + '</div></div>');
+                        const distanceStr = distanceKm !== null ? '<div style="font-size:10px;color:#666666;margin-top:2px;"><i class="fa-solid fa-location-arrow mr-1 text-[#2E7D32]"></i>' + distanceKm.toFixed(1) + ' km away</div>' : '';
+                        providerMarker.bindPopup('<div style="font-family:Poppins,sans-serif;padding:2px;text-align:left;"><div style="font-weight:700;font-size:12px;color:#2563EB;">Food Provider: ' + pNameEscaped + '</div>' + distanceStr + '</div>');
                         this.markers.push(providerMarker);
                         bounds.push([pLat, pLng]);
                     });
@@ -169,8 +199,8 @@
     </script>
 
     <!-- Leaflet Interactive Pickup Map Component -->
-    <div x-data="marketplaceMapComponent()" @marketplace-foods-updated.window="renderMapData($event.detail)" class="mb-6">
-        <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-4">
+    <div id="map" x-data="marketplaceMapComponent()" x-init="if(window.location.hash === '#map') { mapOpen = true; initMap(); }" @marketplace-foods-updated.window="renderMapData($event.detail)" class="mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-4">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-lg bg-[#2E7D32]/10 text-[#2E7D32] flex items-center justify-center font-bold">
                     <i class="fa-solid fa-map-location-dot"></i>
@@ -179,10 +209,12 @@
                     <h3 class="text-sm font-bold text-[#222222]">Interactive Food Provider Locations Map</h3>
                     <div class="flex items-center gap-3 text-[11px] text-[#666666] mt-0.5">
                         <span class="flex items-center gap-1 font-medium text-red-500"><i class="fa-solid fa-circle text-[8px]"></i> 🔴 Your Location</span>
-                        <span class="flex items-center gap-1 font-medium text-blue-600"><i class="fa-solid fa-circle text-[8px]"></i> 🔵 Food Providers</span>
+                        <span class="flex items-center gap-1 font-medium text-blue-600"><i class="fa-solid fa-circle text-[8px]"></i> 🔵 Food Providers (within <span x-text="fixedRadiusKm"></span> km)</span>
                     </div>
                 </div>
             </div>
+
+            <!-- Map Toggle Button -->
             <button type="button" @click="mapOpen = !mapOpen; if(mapOpen) initMap();" class="px-4 py-2 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-medium rounded-full shadow-xs transition-all flex items-center gap-1.5">
                 <i class="fa-solid" :class="mapOpen ? 'fa-eye-slash' : 'fa-map'"></i>
                 <span x-text="mapOpen ? 'Hide Pickup Map' : 'View Interactive Map'"></span>
@@ -418,7 +450,7 @@
                     'expiration_time_raw' => $food->expiration_time,
                     'pickup_window' => $food->pickup_window,
                     'donation_status' => $food->donation_status,
-                    'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
+                    'image_url' => $food->image_url,
                     'provider_name' => $food->user ? $food->user->name : 'Food Provider',
                     'average_rating' => $food->average_rating,
                     'reviews_count' => $food->reviews_count,

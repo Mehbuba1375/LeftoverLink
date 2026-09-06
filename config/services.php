@@ -42,4 +42,17 @@ return [
         'from'  => env('TWILIO_FROM'),
     ],
 
+    // Cloudinary Image Storage
+    'cloudinary' => [
+        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+        'api_key' => env('CLOUDINARY_API_KEY'),
+        'api_secret' => env('CLOUDINARY_API_SECRET'),
+        'upload_preset' => env('CLOUDINARY_UPLOAD_PRESET', 'leftoverlink'),
+    ],
+
+    // Leaflet Map Configuration
+    'map' => [
+        'radius_km' => (float) env('MAP_RADIUS_KM', 10.0),
+    ],
+
 ];

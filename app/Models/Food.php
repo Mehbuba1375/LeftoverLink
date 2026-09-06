@@ -90,6 +90,17 @@ class Food extends Model
         return $value ?? 'Flexible';
     }
 
+    public function getImageUrlAttribute()
+    {
+        if (!$this->image) {
+            return asset('images/default-food.png');
+        }
+        if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
+            return $this->image;
+        }
+        return asset('storage/' . $this->image);
+    }
+
     public function scopeAvailable($query)
     {
         return $query->where('quantity', '>', 0)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Food;
+use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -91,8 +92,14 @@ class ProviderDashboardController extends Controller
         $validated['user_id'] = auth()->id();
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('food-images', 'public');
-            $validated['image'] = $path;
+            $cloudinaryService = app(CloudinaryService::class);
+            $cloudinaryUrl = $cloudinaryService->upload($request->file('image'));
+            if ($cloudinaryUrl) {
+                $validated['image'] = $cloudinaryUrl;
+            } else {
+                $path = $request->file('image')->store('food-images', 'public');
+                $validated['image'] = $path;
+            }
         }
 
         // If donation, set price to 0
@@ -141,11 +148,22 @@ class ProviderDashboardController extends Controller
         $validated['pickup_window'] = "{$startFormatted} – {$endFormatted}";
 
         if ($request->hasFile('image')) {
-            if ($food->image && Storage::disk('public')->exists($food->image)) {
-                Storage::disk('public')->delete($food->image);
+            $cloudinaryService = app(CloudinaryService::class);
+            if ($food->image) {
+                if (str_starts_with($food->image, 'http://') || str_starts_with($food->image, 'https://')) {
+                    $cloudinaryService->deleteByUrl($food->image);
+                } elseif (Storage::disk('public')->exists($food->image)) {
+                    Storage::disk('public')->delete($food->image);
+                }
             }
-            $path = $request->file('image')->store('food-images', 'public');
-            $validated['image'] = $path;
+
+            $cloudinaryUrl = $cloudinaryService->upload($request->file('image'));
+            if ($cloudinaryUrl) {
+                $validated['image'] = $cloudinaryUrl;
+            } else {
+                $path = $request->file('image')->store('food-images', 'public');
+                $validated['image'] = $path;
+            }
         }
 
         if ($validated['donation_status']) {
@@ -167,8 +185,12 @@ class ProviderDashboardController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        if ($food->image && Storage::disk('public')->exists($food->image)) {
-            Storage::disk('public')->delete($food->image);
+        if ($food->image) {
+            if (str_starts_with($food->image, 'http://') || str_starts_with($food->image, 'https://')) {
+                app(CloudinaryService::class)->deleteByUrl($food->image);
+            } elseif (Storage::disk('public')->exists($food->image)) {
+                Storage::disk('public')->delete($food->image);
+            }
         }
 
         $food->delete();
