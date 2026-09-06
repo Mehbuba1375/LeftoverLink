@@ -141,7 +141,7 @@ class MarketplaceController extends Controller
                 'pickup_start_time' => $food->pickup_start_time ? \Carbon\Carbon::parse($food->pickup_start_time)->format('H:i') : null,
                 'pickup_end_time' => $food->pickup_end_time ? \Carbon\Carbon::parse($food->pickup_end_time)->format('H:i') : null,
                 'donation_status' => (bool)$food->donation_status,
-                'image_url' => $food->image ? asset('storage/' . $food->image) : asset('images/default-food.png'),
+                'image_url' => $food->image_url,
                 'provider_name' => $food->user ? $food->user->name : 'Food Provider',
                 'provider_id' => $food->user_id,
                 'user_id' => $food->user_id,
