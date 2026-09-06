@@ -5,12 +5,20 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\FoodRequestController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProviderDashboardController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SustainabilityController;
 use Illuminate\Support\Facades\Route;
+
+// Public SSLCommerz Payment Gateway Callback Routes
+Route::post('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
+Route::post('/payment/fail', [PaymentController::class, 'fail'])->name('payment.fail');
+Route::post('/payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
+Route::post('/payment/ipn', [PaymentController::class, 'ipn'])->name('payment.ipn');
+Route::get('/payment/mock-gateway/{tran_id}', [PaymentController::class, 'mockGateway'])->name('payment.mock_gateway');
 
 // Public Marketplace Routes
 Route::get('/', [MarketplaceController::class, 'index'])->name('home');
@@ -53,6 +61,10 @@ Route::middleware('auth')->group(function () {
     Route::match(['post', 'patch'], '/reservations/{reservation}/provider-cancel', [ReservationController::class, 'providerCancel'])->name('reservations.provider-cancel');
     Route::match(['post', 'patch'], '/reservations/{reservation}/approve-schedule', [ReservationController::class, 'approveSchedule'])->name('reservations.approve-schedule');
     Route::match(['post', 'patch'], '/reservations/{reservation}/adjust-schedule', [ReservationController::class, 'adjustSchedule'])->name('reservations.adjust-schedule');
+
+    // Online SSLCommerz Payment Routes
+    Route::post('/payment/initiate', [PaymentController::class, 'initiate'])->name('payment.initiate');
+    Route::post('/payment/pay-reservation/{reservation}', [PaymentController::class, 'payReservation'])->name('payment.pay_reservation');
 
     // Review Submission
     Route::post('/foods/{food}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
