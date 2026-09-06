@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 class SSLCommerzService
 {
@@ -24,6 +25,34 @@ class SSLCommerzService
     }
 
     /**
+     * Build a temporary signed callback URL carrying the payment reference.
+     *
+     * SSLCommerz posts the browser back from its own domain. Because the
+     * session cookie is SameSite=Lax the browser withholds it on that
+     * cross-site POST, so the callback needs a trustworthy way to know which
+     * consumer the payment belongs to.
+     */
+    public function callbackUrl(string $routeName, Payment $payment): string
+    {
+        return URL::temporarySignedRoute($routeName, now()->addHours(3), ['ref' => $payment->id]);
+    }
+
+    /**
+     * HMAC token sent as `value_a` and echoed back by the gateway.
+     *
+     * Bound to both the payment id and its transaction id, so a token issued
+     * for one payment can never be replayed against another.
+     */
+    public function callbackToken(Payment $payment): string
+    {
+        return $payment->id . '.' . hash_hmac(
+            'sha256',
+            'leftoverlink-payment|' . $payment->id . '|' . $payment->tran_id,
+            (string) config('app.key')
+        );
+    }
+
+    /**
      * Initiate payment session with SSLCommerz gateway.
      */
     public function initiatePayment(Payment $payment, array $customerData = []): array
@@ -37,17 +66,20 @@ class SSLCommerzService
             'total_amount' => number_format($payment->amount, 2, '.', ''),
             'currency' => $payment->currency ?? 'BDT',
             'tran_id' => $payment->tran_id,
-            'success_url' => route('payment.success'),
-            'fail_url' => route('payment.fail'),
-            'cancel_url' => route('payment.cancel'),
+            'success_url' => $this->callbackUrl('payment.success', $payment),
+            'fail_url' => $this->callbackUrl('payment.fail', $payment),
+            'cancel_url' => $this->callbackUrl('payment.cancel', $payment),
             'ipn_url' => route('payment.ipn'),
+            // Echoed back by SSLCommerz in the callback body; lets the callback
+            // re-establish the consumer session that SameSite=Lax withholds.
+            'value_a' => $this->callbackToken($payment),
             'cus_name' => $customerData['name'] ?? ($user ? $user->name : 'Consumer'),
             'cus_email' => $customerData['email'] ?? ($user ? $user->email : 'consumer@example.com'),
             'cus_add1' => $customerData['address'] ?? ($user->address ?? 'Dhaka, Bangladesh'),
             'cus_city' => 'Dhaka',
             'cus_postcode' => '1000',
             'cus_country' => 'Bangladesh',
-            'cus_phone' => $customerData['phone'] ?? ($user->phone_number ?? '01700000000'),
+            'cus_phone' => $customerData['phone'] ?? ($user->phone ?? '01700000000'),
             'shipping_method' => 'NO',
             'product_name' => $food ? $food->food_name : 'LeftoverLink Surplus Food',
             'product_category' => $food ? ($food->category ?? 'Food') : 'Food',

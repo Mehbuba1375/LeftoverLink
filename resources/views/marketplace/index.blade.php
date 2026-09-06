@@ -355,6 +355,8 @@
                                                 </div>
                                                 <form :action="'/foods/' + item.id + '/reserve'" method="POST" class="space-y-4">
                                                     @csrf
+                                                    {{-- Online Payment System: required by the payment.initiate route --}}
+                                                    <input type="hidden" name="food_id" :value="item.id">
                                                     <div>
                                                         <label class="block text-xs font-semibold text-[#222222] mb-1">Select Quantity (Available: <span x-text="item.quantity"></span>)</label>
                                                         <div class="flex items-center gap-3">
@@ -377,9 +379,20 @@
                                                         <input type="time" name="preferred_pickup_time" :min="item.pickup_start_time || '00:00'" :max="item.pickup_end_time || '23:59'" required class="w-full px-3 py-2 bg-[#F5F5F5] border border-gray-200 rounded-xl text-xs text-[#222222]">
                                                     </div>
 
-                                                    <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
-                                                        <button type="button" @click="reserveModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
-                                                        <button type="submit" class="px-5 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full shadow-md">Confirm Reservation</button>
+                                                    <div class="flex flex-col gap-2 pt-2 border-t border-gray-100">
+                                                        {{-- Online Payment System: pay through SSLCommerz while reserving a priced item --}}
+                                                        <template x-if="!item.donation_status">
+                                                            <button type="submit"
+                                                                    @click="$el.form.action = '{{ route('payment.initiate') }}'"
+                                                                    class="w-full px-5 py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-semibold rounded-full shadow-md transition-all">
+                                                                <i class="fa-solid fa-credit-card mr-1"></i>
+                                                                Pay Now with SSLCommerz — ৳<span x-text="(parseFloat(String(item.price).replace(/,/g, '')) * reserveQty).toFixed(2)"></span>
+                                                            </button>
+                                                        </template>
+                                                        <div class="flex justify-end gap-2">
+                                                            <button type="button" @click="reserveModal = false" class="px-4 py-2 bg-[#F5F5F5] text-[#222222] text-xs font-medium rounded-full">Cancel</button>
+                                                            <button type="submit" @click="$el.form.action = '/foods/' + item.id + '/reserve'" class="px-5 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs font-medium rounded-full shadow-md">Confirm Reservation</button>
+                                                        </div>
                                                     </div>
                                                 </form>
                                             </div>
