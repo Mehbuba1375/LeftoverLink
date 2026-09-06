@@ -253,6 +253,30 @@
 
                             {{-- Action Button --}}
                             @if($reservation->isReserved())
+                                {{-- Online Payment System: payment status, pay & retry --}}
+                                @if($reservation->requiresPayment())
+                                    <div class="pt-1 space-y-2">
+                                        <div class="flex items-center justify-between gap-2 p-2 bg-[#F5F5F5] rounded-lg">
+                                            <span class="text-[11px] font-semibold text-[#222222]">
+                                                <i class="fa-solid fa-receipt text-[#666666] mr-1"></i> Payment
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $reservation->display_status_class }}">
+                                                {{ $reservation->display_status }}
+                                            </span>
+                                        </div>
+
+                                        @if($reservation->awaitingPayment())
+                                            <form action="{{ route('payment.pay_reservation', $reservation->id) }}" method="POST">
+                                                @csrf
+                                                <button type="submit" class="block w-full py-2.5 bg-[#2E7D32] hover:bg-[#256928] text-white text-xs font-semibold rounded-full text-center shadow-xs hover:shadow-md transition-all">
+                                                    <i class="fa-solid fa-credit-card mr-1"></i>
+                                                    {{ $reservation->isPaymentFailed() ? 'Retry Payment' : 'Pay Now' }} — ৳{{ number_format($reservation->payable_amount, 2) }}
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @endif
+
                                 <div class="pt-1">
                                     <form action="{{ route('reservations.cancel', $reservation->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this reservation? The food item will become available again.')">
                                         @csrf

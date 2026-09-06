@@ -8,6 +8,7 @@ use App\Models\Reservation;
 use App\Services\SSLCommerzService;
 use App\Services\TwilioSmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -18,6 +19,43 @@ class PaymentController extends Controller
     public function __construct(SSLCommerzService $sslCommerzService)
     {
         $this->sslCommerzService = $sslCommerzService;
+    }
+
+    /**
+     * Re-establish the consumer's session after a gateway callback.
+     *
+     * SSLCommerz posts the browser back from its own domain. The session
+     * cookie is SameSite=Lax, so the browser withholds it on that cross-site
+     * POST and Laravel starts a fresh, unauthenticated session — which made
+     * the consumer appear logged out right after paying.
+     *
+     * The consumer is logged back in only when the callback proves it belongs
+     * to this exact payment, via either:
+     *   - the HMAC token echoed back by the gateway in `value_a`, or
+     *   - the temporary signed URL the gateway was given (`ref` must match).
+     *
+     * Both are bound to the payment that was just looked up by `tran_id`, so a
+     * token or signature issued for one payment cannot be replayed to log in
+     * as the owner of another. If neither checks out nothing happens and the
+     * behaviour is exactly as before.
+     */
+    private function restoreConsumerSession(Request $request, Payment $payment): void
+    {
+        if (Auth::check() || !$payment->user_id) {
+            return;
+        }
+
+        $tokenMatches = hash_equals(
+            $this->sslCommerzService->callbackToken($payment),
+            (string) $request->input('value_a', '')
+        );
+
+        $signatureMatches = $request->hasValidSignature()
+            && (int) $request->query('ref') === (int) $payment->id;
+
+        if ($tokenMatches || $signatureMatches) {
+            Auth::loginUsingId($payment->user_id);
+        }
     }
 
     /**
@@ -103,7 +141,7 @@ class PaymentController extends Controller
         $initResult = $this->sslCommerzService->initiatePayment($payment, [
             'name' => $user->name,
             'email' => $user->email,
-            'phone' => $user->phone_number ?? '01700000000',
+            'phone' => $user->phone ?? '01700000000',
         ]);
 
         if ($initResult['status'] === 'SUCCESS' && !empty($initResult['gateway_url'])) {
@@ -158,7 +196,7 @@ class PaymentController extends Controller
         $initResult = $this->sslCommerzService->initiatePayment($payment, [
             'name' => $user->name,
             'email' => $user->email,
-            'phone' => $user->phone_number ?? '01700000000',
+            'phone' => $user->phone ?? '01700000000',
         ]);
 
         if ($initResult['status'] === 'SUCCESS' && !empty($initResult['gateway_url'])) {
@@ -186,6 +224,9 @@ class PaymentController extends Controller
             return redirect()->route('reservations.history_dashboard')
                 ->with('error', 'Transaction record not found.');
         }
+
+        // Keep the consumer signed in across the cross-site gateway redirect
+        $this->restoreConsumerSession($request, $payment);
 
         // Validate payment with SSLCommerz server-to-server API
         $validation = $this->sslCommerzService->validatePayment(
@@ -243,6 +284,8 @@ class PaymentController extends Controller
         $payment = Payment::where('tran_id', $tranId)->first();
 
         if ($payment) {
+            $this->restoreConsumerSession($request, $payment);
+
             $payment->update([
                 'status' => Payment::STATUS_FAILED,
                 'raw_response' => $request->all(),
@@ -266,6 +309,8 @@ class PaymentController extends Controller
         $payment = Payment::where('tran_id', $tranId)->first();
 
         if ($payment) {
+            $this->restoreConsumerSession($request, $payment);
+
             $payment->update([
                 'status' => Payment::STATUS_CANCELLED,
                 'raw_response' => $request->all(),
@@ -318,6 +363,9 @@ class PaymentController extends Controller
     {
         $payment = Payment::where('tran_id', $tranId)->with(['food', 'user'])->firstOrFail();
 
-        return view('payments.mock_gateway', compact('payment'));
+        // Mirror the real gateway, which echoes this back on every callback
+        $callbackToken = $this->sslCommerzService->callbackToken($payment);
+
+        return view('payments.mock_gateway', compact('payment', 'callbackToken'));
     }
 }

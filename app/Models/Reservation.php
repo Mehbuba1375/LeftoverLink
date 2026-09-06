@@ -133,6 +133,130 @@ class Reservation extends Model
         return $this->isReserved();
     }
 
+    // ─── Payment Status Helpers (Online Payment System) ──────
+    //
+    // These are purely additive. The `status` column and every helper above
+    // it are left untouched, so reviews, pickup reminders and the
+    // sustainability dashboard keep behaving exactly as before. "Ready for
+    // Pickup" is derived from `payment_status`, not stored as a new status.
+
+    const PAYMENT_UNPAID = 'unpaid';
+    const PAYMENT_PENDING = 'pending';
+    const PAYMENT_PAID = 'paid';
+    const PAYMENT_FAILED = 'failed';
+    const PAYMENT_CANCELLED = 'cancelled';
+
+    /**
+     * True when the reserved item is a priced (non-donation) listing and
+     * therefore needs an online payment.
+     */
+    public function requiresPayment(): bool
+    {
+        return $this->food
+            && !$this->food->donation_status
+            && (float) $this->food->price > 0;
+    }
+
+    /**
+     * Total payable amount (unit price x reserved quantity).
+     */
+    public function getPayableAmountAttribute(): float
+    {
+        if (!$this->requiresPayment()) {
+            return 0.00;
+        }
+
+        return round((float) $this->food->price * $this->quantity, 2);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payment_status === self::PAYMENT_PAID;
+    }
+
+    public function isPaymentPending(): bool
+    {
+        return $this->payment_status === self::PAYMENT_PENDING;
+    }
+
+    public function isPaymentFailed(): bool
+    {
+        return in_array($this->payment_status, [self::PAYMENT_FAILED, self::PAYMENT_CANCELLED], true);
+    }
+
+    /**
+     * A paid reservation that has not been picked up yet is Ready for Pickup.
+     */
+    public function isReadyForPickup(): bool
+    {
+        return $this->isReserved() && $this->isPaid();
+    }
+
+    /**
+     * The consumer still owes payment (first attempt or a retry).
+     */
+    public function awaitingPayment(): bool
+    {
+        return $this->isReserved() && $this->requiresPayment() && !$this->isPaid();
+    }
+
+    /**
+     * Human readable status shown to the consumer.
+     */
+    public function getDisplayStatusAttribute(): string
+    {
+        if ($this->isCancelled()) {
+            return 'Cancelled';
+        }
+
+        if ($this->isCompleted()) {
+            return 'Completed';
+        }
+
+        if ($this->isReadyForPickup()) {
+            return 'Paid — Ready for Pickup';
+        }
+
+        if ($this->awaitingPayment()) {
+            return match ($this->payment_status) {
+                self::PAYMENT_PENDING => 'Payment Pending',
+                self::PAYMENT_FAILED => 'Payment Failed',
+                self::PAYMENT_CANCELLED => 'Payment Cancelled',
+                default => 'Awaiting Payment',
+            };
+        }
+
+        return 'Reserved';
+    }
+
+    /**
+     * Tailwind badge classes matching the display status.
+     */
+    public function getDisplayStatusClassAttribute(): string
+    {
+        if ($this->isCancelled()) {
+            return 'bg-red-100 text-red-700';
+        }
+
+        if ($this->isCompleted()) {
+            return 'bg-[#2E7D32]/10 text-[#2E7D32]';
+        }
+
+        if ($this->isReadyForPickup()) {
+            return 'bg-emerald-100 text-emerald-800';
+        }
+
+        if ($this->isPaymentFailed()) {
+            return 'bg-red-100 text-red-700';
+        }
+
+        if ($this->awaitingPayment()) {
+            return 'bg-amber-100 text-amber-800';
+        }
+
+        return 'bg-blue-100 text-blue-700';
+    }
+
     // ─── Pickup Schedule Helpers ─────────────────────────────
 
     public function isSchedulePending(): bool

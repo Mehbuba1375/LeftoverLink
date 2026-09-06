@@ -251,6 +251,18 @@
                                         </div>
                                     @endif
 
+                                    {{-- Online Payment System: live payment state --}}
+                                    @if($res->requiresPayment())
+                                        <div class="flex items-center justify-between p-2 rounded-xl border {{ $res->isReadyForPickup() ? 'bg-emerald-50/70 border-emerald-100' : 'bg-amber-50/70 border-amber-100' }}">
+                                            <span class="flex items-center gap-1.5 text-gray-600">
+                                                <i class="fa-solid fa-credit-card"></i> Payment:
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ $res->display_status_class }}">
+                                                {{ $res->display_status }}
+                                            </span>
+                                        </div>
+                                    @endif
+
                                     @if($res->preferred_pickup_date)
                                         <div class="p-2.5 bg-gray-50 rounded-xl space-y-1 text-[11px]">
                                             <div class="flex items-center justify-between font-semibold text-gray-800">
@@ -278,7 +290,7 @@
                                         <form action="{{ route('payment.pay_reservation', $res->id) }}" method="POST" class="flex-1">
                                             @csrf
                                             <button type="submit" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all text-center flex items-center justify-center gap-1">
-                                                <i class="fa-solid fa-credit-card text-[11px]"></i> Pay Online
+                                                <i class="fa-solid fa-credit-card text-[11px]"></i> {{ $res->isPaymentFailed() ? 'Retry Payment' : 'Pay Online' }}
                                             </button>
                                         </form>
                                     @endif
